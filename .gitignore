@@ -1,0 +1,44 @@
+# =========================
+# PHP / Composer
+# =========================
+/vendor/
+composer.lock
+
+# =========================
+# SQLite database
+# =========================
+/var/*.sqlite
+/var/*.sqlite-journal
+/var/*.sqlite-shm
+/var/*.sqlite-wal
+
+# =========================
+# Logs / cache
+# =========================
+/var/cache/
+/var/logs/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE (PhpStorm)
+# =========================
+.idea/
+*.iml
+
+# =========================
+# Temporary / backups
+# =========================
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# =========================
+# Server related
+# =========================
+.phpunit.result.cache
