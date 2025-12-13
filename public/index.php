@@ -97,16 +97,14 @@ function normalizeVisitTime(?string $hhmm): ?string
 }
 
 /**
- * Защита: разрешаем "back" только на внутренние пути вида "/something"
+ * Разрешаем back только на внутренние пути "/..."
  */
 function sanitizeBack(?string $back): ?string
 {
     $b = trim((string)$back);
     if ($b === '') return null;
-
     if (!str_starts_with($b, '/')) return null;
     if (str_starts_with($b, '//')) return null;
-
     return $b;
 }
 
@@ -116,6 +114,9 @@ $app->get('/', function (Request $request, Response $response) use ($twig) {
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Клиенты: список + поиск
+ */
 $app->get('/clients', function (Request $request, Response $response) use ($twig) {
     $q = trim((string)($request->getQueryParams()['q'] ?? ''));
 
@@ -138,6 +139,9 @@ $app->get('/clients', function (Request $request, Response $response) use ($twig
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Клиенты: создание
+ */
 $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Response $response) use ($twig) {
     $errors = [];
     $data = ['full_name' => '', 'address' => '', 'phone' => '', 'notes' => ''];
@@ -179,6 +183,9 @@ $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Respon
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Клиент: редактирование (умный back)
+ */
 $app->map(['GET', 'POST'], '/clients/{id}/edit', function (Request $request, Response $response, array $args) use ($twig) {
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -249,6 +256,57 @@ $app->map(['GET', 'POST'], '/clients/{id}/edit', function (Request $request, Res
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Клиент: удаление (POST) — каскад: visits -> pets -> client
+ */
+$app->post('/clients/{id}/delete', function (Request $request, Response $response, array $args) {
+    $clientId = (int)($args['id'] ?? 0);
+    $pdo = Db::pdo();
+
+    // проверим, что клиент существует
+    $stmt = $pdo->prepare('SELECT id FROM clients WHERE id = :id');
+    $stmt->execute([':id' => $clientId]);
+    $client = $stmt->fetch();
+
+    if (!$client) {
+        return $response->withHeader('Location', '/clients')->withStatus(302);
+    }
+
+    // транзакция, чтобы удаление было атомарным
+    $pdo->beginTransaction();
+    try {
+        // 1) найти питомцев клиента
+        $stmt = $pdo->prepare('SELECT id FROM pets WHERE client_id = :cid');
+        $stmt->execute([':cid' => $clientId]);
+        $petIds = array_map(static fn($r) => (int)$r['id'], $stmt->fetchAll());
+
+        // 2) удалить визиты всех питомцев
+        if (!empty($petIds)) {
+            $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+            $stmt = $pdo->prepare("DELETE FROM visits WHERE pet_id IN ($placeholders)");
+            $stmt->execute($petIds);
+
+            // 3) удалить питомцев
+            $stmt = $pdo->prepare("DELETE FROM pets WHERE id IN ($placeholders)");
+            $stmt->execute($petIds);
+        }
+
+        // 4) удалить клиента
+        $stmt = $pdo->prepare('DELETE FROM clients WHERE id = :id');
+        $stmt->execute([':id' => $clientId]);
+
+        $pdo->commit();
+    } catch (\Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+
+    return $response->withHeader('Location', '/clients')->withStatus(302);
+});
+
+/**
+ * Клиент: карточка + питомцы
+ */
 $app->get('/clients/{id}', function (Request $request, Response $response, array $args) use ($twig) {
     $id = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -282,6 +340,9 @@ $app->get('/clients/{id}', function (Request $request, Response $response, array
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Питомец: добавление
+ */
 $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $request, Response $response, array $args) use ($twig) {
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -352,6 +413,9 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Питомцы: список
+ */
 $app->get('/pets', function (Request $request, Response $response) use ($twig) {
     $q = trim((string)($request->getQueryParams()['q'] ?? ''));
 
@@ -392,6 +456,9 @@ $app->get('/pets', function (Request $request, Response $response) use ($twig) {
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Питомец: карточка + визиты
+ */
 $app->get('/pets/{id}', function (Request $request, Response $response, array $args) use ($twig) {
     $id = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -517,6 +584,9 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Питомец: удаление
+ */
 $app->post('/pets/{id}/delete', function (Request $request, Response $response, array $args) {
     $petId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -538,6 +608,9 @@ $app->post('/pets/{id}/delete', function (Request $request, Response $response, 
     return $response->withHeader('Location', '/clients/' . (int)$pet['client_id'])->withStatus(302);
 });
 
+/**
+ * Визит: добавление
+ */
 $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $request, Response $response, array $args) use ($twig) {
     $petId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -616,6 +689,9 @@ $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $reques
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Визит: редактирование
+ */
 $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Request $request, Response $response, array $args) use ($twig) {
     $petId = (int)($args['petId'] ?? 0);
     $visitId = (int)($args['visitId'] ?? 0);
@@ -713,6 +789,9 @@ $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Requ
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Визит: удаление
+ */
 $app->post('/pets/{petId}/visits/{visitId}/delete', function (Request $request, Response $response, array $args) {
     $petId = (int)($args['petId'] ?? 0);
     $visitId = (int)($args['visitId'] ?? 0);

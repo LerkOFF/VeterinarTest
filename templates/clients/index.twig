@@ -29,7 +29,7 @@
                     <th>ФИО</th>
                     <th>Адрес</th>
                     <th style="width: 180px;">Телефон</th>
-                    <th style="width: 160px;">Действия</th>
+                    <th style="width: 260px;">Действия</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -46,6 +46,12 @@
                         <td>
                             <div class="d-flex gap-2">
                                 <a class="btn btn-sm btn-success" href="/clients/{{ c.id }}/edit?back=/clients">Редактировать</a>
+
+                                <form method="post"
+                                      action="/clients/{{ c.id }}/delete"
+                                      onsubmit="return confirm('Удалить клиента «{{ c.full_name }}» и всех его питомцев/визиты?');">
+                                    <button class="btn btn-sm btn-danger" type="submit">Удалить</button>
+                                </form>
                             </div>
                         </td>
                     </tr>

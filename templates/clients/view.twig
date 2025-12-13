@@ -18,7 +18,7 @@
                     {% if client.address %}
                         <span class="badge text-bg-light border px-3 py-2">
               <span class="me-2">📍</span>
-             <span class="fw-semibold fs-5">{{ client.address }}</span>
+              <span class="fw-semibold fs-5">{{ client.address }}</span>
             </span>
                     {% endif %}
 
@@ -31,6 +31,13 @@
             <div class="d-flex flex-wrap gap-2">
                 <a class="btn btn-outline-secondary" href="/clients">К списку</a>
                 <a class="btn btn-success" href="/clients/{{ client.id }}/edit">Редактировать клиента</a>
+
+                <form method="post"
+                      action="/clients/{{ client.id }}/delete"
+                      onsubmit="return confirm('Удалить клиента «{{ client.full_name }}» и всех его питомцев/визиты?');">
+                    <button class="btn btn-danger" type="submit">Удалить клиента</button>
+                </form>
+
                 <a class="btn btn-primary" href="/clients/{{ client.id }}/pets/create">+ Питомец</a>
             </div>
         </div>
