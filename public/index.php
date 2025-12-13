@@ -41,7 +41,7 @@ function normalizeBirthDateToIso(?string $ddmmyyyy): ?string
     }
 
     if (!preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $s, $m)) {
-        throw new InvalidArgumentException('Дата рождения должна быть в формате ДД-ММ-ГГГГ.');
+        throw new \InvalidArgumentException('Дата рождения должна быть в формате ДД-ММ-ГГГГ.');
     }
 
     $day = (int)$m[1];
@@ -49,7 +49,7 @@ function normalizeBirthDateToIso(?string $ddmmyyyy): ?string
     $year = (int)$m[3];
 
     if (!checkdate($month, $day, $year)) {
-        throw new InvalidArgumentException('Дата рождения некорректна.');
+        throw new \InvalidArgumentException('Дата рождения некорректна.');
     }
 
     return sprintf('%04d-%02d-%02d', $year, $month, $day);
@@ -66,7 +66,6 @@ function formatIsoToDdMmYyyy(?string $iso): string
     }
 
     if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
-        // если в БД лежит что-то странное — просто покажем как есть
         return $s;
     }
 
@@ -181,7 +180,6 @@ $app->get('/clients/{id}', function (Request $request, Response $response, array
     $stmt->execute([':id' => $id]);
     $petsRaw = $stmt->fetchAll();
 
-    // Приводим дату рождения к формату ДД-ММ-ГГГГ для отображения
     $pets = [];
     foreach ($petsRaw as $p) {
         $p['birth_date_view'] = formatIsoToDdMmYyyy($p['birth_date'] ?? null);
@@ -207,7 +205,6 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
 
-    // клиент должен существовать
     $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
     $stmt->execute([':id' => $clientId]);
     $client = $stmt->fetch();
@@ -233,7 +230,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
         $data['name'] = trim((string)($parsed['name'] ?? ''));
         $data['species'] = trim((string)($parsed['species'] ?? ''));
         $data['breed'] = trim((string)($parsed['breed'] ?? ''));
-        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? '')); // ДД-ММ-ГГГГ
+        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? ''));
         $data['medications'] = trim((string)($parsed['medications'] ?? ''));
         $data['notes'] = trim((string)($parsed['notes'] ?? ''));
 
@@ -242,7 +239,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
         $birthIso = null;
         try {
             $birthIso = normalizeBirthDateToIso($data['birth_date']);
-        } catch (InvalidArgumentException $e) {
+        } catch (\InvalidArgumentException $e) {
             $errors[] = $e->getMessage();
         }
 
@@ -271,6 +268,81 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
         'client' => $client,
         'errors' => $errors,
         'data' => $data,
+    ]);
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
+/**
+ * Питомцы: общий список + поиск по кличке/виду/породе/ФИО клиента
+ */
+$app->get('/pets', function (Request $request, Response $response) use ($twig) {
+    $q = trim((string)($request->getQueryParams()['q'] ?? ''));
+
+    $pdo = Db::pdo();
+
+    if ($q !== '') {
+        $stmt = $pdo->prepare(
+            'SELECT p.*, c.full_name AS client_full_name
+             FROM pets p
+             JOIN clients c ON c.id = p.client_id
+             WHERE p.name LIKE :q OR p.species LIKE :q OR p.breed LIKE :q OR c.full_name LIKE :q
+             ORDER BY p.id DESC'
+        );
+        $stmt->execute([':q' => "%$q%"]);
+        $petsRaw = $stmt->fetchAll();
+    } else {
+        $petsRaw = $pdo->query(
+            'SELECT p.*, c.full_name AS client_full_name
+             FROM pets p
+             JOIN clients c ON c.id = p.client_id
+             ORDER BY p.id DESC'
+        )->fetchAll();
+    }
+
+    $pets = [];
+    foreach ($petsRaw as $p) {
+        $p['birth_date_view'] = formatIsoToDdMmYyyy($p['birth_date'] ?? null);
+        $pets[] = $p;
+    }
+
+    $html = $twig->render('pets/index.twig', [
+        'title' => 'Питомцы',
+        'pets' => $pets,
+        'q' => $q,
+    ]);
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
+/**
+ * Питомец: карточка
+ */
+$app->get('/pets/{id}', function (Request $request, Response $response, array $args) use ($twig) {
+    $id = (int)($args['id'] ?? 0);
+    $pdo = Db::pdo();
+
+    $stmt = $pdo->prepare(
+        'SELECT p.*, c.full_name AS client_full_name
+         FROM pets p
+         JOIN clients c ON c.id = p.client_id
+         WHERE p.id = :id'
+    );
+    $stmt->execute([':id' => $id]);
+    $pet = $stmt->fetch();
+
+    if (!$pet) {
+        $response->getBody()->write('Pet not found');
+        return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    $pet['birth_date_view'] = formatIsoToDdMmYyyy($pet['birth_date'] ?? null);
+
+    $html = $twig->render('pets/view.twig', [
+        'title' => 'Карточка питомца',
+        'pet' => $pet,
     ]);
 
     $response->getBody()->write($html);

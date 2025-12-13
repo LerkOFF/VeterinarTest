@@ -1,0 +1,55 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h4 mb-0">Питомцы</h1>
+        <a class="btn btn-outline-secondary" href="/clients">Клиенты</a>
+    </div>
+
+    <form class="row g-2 mb-3" method="get" action="/pets">
+        <div class="col-sm-8 col-md-6">
+            <input class="form-control" name="q" value="{{ q }}" placeholder="Поиск: кличка, вид, порода, ФИО клиента">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-outline-secondary" type="submit">Найти</button>
+        </div>
+        {% if q %}
+            <div class="col-auto">
+                <a class="btn btn-link" href="/pets">Сбросить</a>
+            </div>
+        {% endif %}
+    </form>
+
+    <div class="bg-white rounded shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th style="width: 70px;">ID</th>
+                    <th>Кличка</th>
+                    <th>Вид</th>
+                    <th>Порода</th>
+                    <th style="width: 140px;">Рождение</th>
+                    <th>Клиент</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for p in pets %}
+                    <tr>
+                        <td>{{ p.id }}</td>
+                        <td><a href="/pets/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a></td>
+                        <td>{{ p.species|default('—') }}</td>
+                        <td>{{ p.breed|default('—') }}</td>
+                        <td>{{ p.birth_date_view|default('—') }}</td>
+                        <td><a href="/clients/{{ p.client_id }}" class="text-decoration-none">{{ p.client_full_name }}</a></td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">Питомцев пока нет</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

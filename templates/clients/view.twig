@@ -41,7 +41,9 @@
                 {% for p in pets %}
                     <tr>
                         <td>{{ p.id }}</td>
-                        <td>{{ p.name }}</td>
+                        <td>
+                            <a href="/pets/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a>
+                        </td>
                         <td>{{ p.species|default('—') }}</td>
                         <td>{{ p.breed|default('—') }}</td>
                         <td>{{ p.birth_date_view|default('—') }}</td>

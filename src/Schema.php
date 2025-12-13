@@ -38,5 +38,8 @@ final class Schema
                 FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT
             )'
         );
+
+        // Индекс для быстрых выборок питомцев по клиенту
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_pets_client_id ON pets(client_id)');
     }
 }
