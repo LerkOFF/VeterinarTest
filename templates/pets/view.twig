@@ -1,117 +1,115 @@
 {% extends "layout.twig" %}
 
 {% block content %}
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
-            <h1 class="h4 mb-1">{{ pet.name }}</h1>
-            <div class="text-muted small">
-                Клиент:
-                <a href="/clients/{{ pet.client_id }}" class="text-decoration-none">{{ pet.client_full_name }}</a>
+            <h1 class="h4 fw-bold m-0">Карточка питомца</h1>
+            <div class="muted small">
+                {% if pet.client_full_name %}
+                    Клиент: <a href="/clients/{{ pet.client_id }}">{{ pet.client_full_name|e }}</a>
+                {% endif %}
             </div>
         </div>
 
         <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary" href="/clients/{{ pet.client_id }}">К клиенту</a>
-            <a class="btn btn-outline-secondary" href="/pets">Все питомцы</a>
+            {% if pet.client_id %}
+                <a class="btn btn-outline-secondary" href="/clients/{{ pet.client_id }}">Назад к клиенту</a>
+            {% else %}
+                <a class="btn btn-outline-secondary" href="/pets">Назад</a>
+            {% endif %}
 
-            {# Редактирование — зелёная кнопка #}
-            <a class="btn btn-success" href="/pets/{{ pet.id }}/edit">Редактировать питомца</a>
+            <a class="btn btn-success btn-edit" href="/pets/{{ pet.id }}/edit?back=/pets/{{ pet.id }}">Редактировать</a>
 
-            {# Удаление питомца — красная кнопка (POST) #}
-            <form method="post"
-                  action="/pets/{{ pet.id }}/delete"
-                  onsubmit="return confirm('Удалить питомца «{{ pet.name }}» и все его визиты?');">
-                <button class="btn btn-danger" type="submit">Удалить питомца</button>
+            <form method="post" action="/pets/{{ pet.id }}/delete" onsubmit="return confirm('Удалить питомца и все его визиты?');">
+                <button class="btn btn-danger" type="submit">Удалить</button>
             </form>
-
-            <a class="btn btn-primary" href="/pets/{{ pet.id }}/visits/create">+ Визит</a>
         </div>
     </div>
 
-    <div class="bg-white rounded shadow-sm p-4 mb-3">
-        <div class="row g-3">
-            <div class="col-md-6">
-                <div class="fw-semibold">Вид</div>
-                <div>{{ pet.species|default('—') }}</div>
-            </div>
+    <div class="card app-card app-shadow mb-3">
+        <div class="card-body p-4">
+            <div class="fw-bold fs-4 mb-2">{{ pet.name|e }}</div>
 
-            <div class="col-md-6">
-                <div class="fw-semibold">Порода</div>
-                <div>{{ pet.breed|default('—') }}</div>
-            </div>
+            <div class="row g-3 kv">
+                <div class="col-12 col-md-4">
+                    <div class="label">Вид</div>
+                    <div class="value">{{ pet.species ? pet.species|e : '—' }}</div>
+                </div>
 
-            <div class="col-md-6">
-                <div class="fw-semibold">Дата рождения</div>
-                <div>{{ pet.birth_date_view ? pet.birth_date_view : '—' }}</div>
-            </div>
+                <div class="col-12 col-md-4">
+                    <div class="label">Порода</div>
+                    <div class="value">{{ pet.breed ? pet.breed|e : '—' }}</div>
+                </div>
 
-            <div class="col-md-6">
-                <div class="fw-semibold">Лекарства (текст)</div>
-                <div class="text-break">{{ pet.medications|default('—') }}</div>
-            </div>
+                <div class="col-12 col-md-4">
+                    <div class="label">Дата рождения</div>
+                    <div class="value">{{ pet.birth_date_view ? pet.birth_date_view|e : '—' }}</div>
+                </div>
 
-            <div class="col-12">
-                <div class="fw-semibold">Заметки</div>
-                <div class="text-break">{{ pet.notes|default('—') }}</div>
+                <div class="col-12 col-md-6">
+                    <div class="label">Лекарства</div>
+                    <div class="value fw-normal">{{ pet.medications ? pet.medications|e : '—' }}</div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="label">Заметки</div>
+                    <div class="value fw-normal">{{ pet.notes ? pet.notes|e : '—' }}</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="bg-white rounded shadow-sm p-3">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-            <h2 class="h6 mb-0">Визиты (посещаемость)</h2>
-            <a class="btn btn-sm btn-outline-primary" href="/pets/{{ pet.id }}/visits/create">Добавить визит</a>
-        </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h2 class="h5 fw-bold m-0">Визиты</h2>
+        <a class="btn btn-success btn-edit" href="/pets/{{ pet.id }}/visits/create">+ Добавить визит</a>
+    </div>
 
-        <div class="table-responsive">
-            <table class="table table-striped mb-0 align-middle">
-                <thead>
-                <tr>
-                    <th style="width: 70px;">ID</th>
-                    <th style="width: 140px;">Дата</th>
-                    <th style="width: 100px;">Время</th>
-                    <th>Жалоба</th>
-                    <th>Диагноз</th>
-                    <th style="width: 190px;">Действия</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for v in visits %}
-                    <tr>
-                        <td>{{ v.id }}</td>
-                        <td>{{ v.visit_date|default('—') }}</td>
-                        <td>{{ v.visit_time|default('—') }}</td>
-                        <td>{{ v.complaint|default('—') }}</td>
-                        <td>{{ v.diagnosis|default('—') }}</td>
-                        <td>
-                            <div class="d-flex gap-2">
-                                {# Редактирование визита — зелёная кнопка #}
-                                <a class="btn btn-sm btn-success"
-                                   href="/pets/{{ pet.id }}/visits/{{ v.id }}/edit">Редактировать</a>
-
-                                <form method="post"
-                                      action="/pets/{{ pet.id }}/visits/{{ v.id }}/delete"
-                                      onsubmit="return confirm('Удалить визит #{{ v.id }}?');">
-                                    <button class="btn btn-sm btn-outline-danger" type="submit">Удалить</button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% if v.procedures or v.recommendations %}
+    <div class="card app-card app-shadow">
+        <div class="card-body p-0">
+            {% if visits is empty %}
+                <div class="p-4 muted">У питомца пока нет визитов.</div>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-striped mb-0 align-middle">
+                        <thead>
                         <tr>
-                            <td colspan="6" class="small text-muted">
-                                {% if v.procedures %}<div><strong>Процедуры:</strong> {{ v.procedures }}</div>{% endif %}
-                                {% if v.recommendations %}<div><strong>Рекомендации:</strong> {{ v.recommendations }}</div>{% endif %}
-                            </td>
+                            <th style="width: 80px;">№ п/п</th>
+                            <th style="width: 140px;">Дата</th>
+                            <th style="width: 110px;">Время</th>
+                            <th>Жалоба</th>
+                            <th style="width: 260px;">Действия</th>
                         </tr>
-                    {% endif %}
-                {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">Визитов пока нет</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+                        </thead>
+                        <tbody>
+                        {% for visit in visits %}
+                            <tr>
+                                {# ✅ ВМЕСТО ID — НОМЕР П/П #}
+                                <td class="fw-semibold">{{ loop.index }}</td>
+
+                                <td>{{ visit.visit_date ? visit.visit_date|e : '—' }}</td>
+                                <td>{{ visit.visit_time ? visit.visit_time|e : '—' }}</td>
+                                <td>{{ visit.complaint ? visit.complaint|e : '—' }}</td>
+
+                                <td>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <a class="btn btn-success btn-edit btn-sm"
+                                           href="/pets/{{ pet.id }}/visits/{{ visit.id }}/edit">
+                                            Редактировать
+                                        </a>
+
+                                        <form method="post"
+                                              action="/pets/{{ pet.id }}/visits/{{ visit.id }}/delete"
+                                              onsubmit="return confirm('Удалить визит?');">
+                                            <button class="btn btn-danger btn-sm" type="submit">Удалить</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
         </div>
     </div>
 {% endblock %}
