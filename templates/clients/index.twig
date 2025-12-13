@@ -35,7 +35,11 @@
                 {% for c in clients %}
                     <tr>
                         <td>{{ c.id }}</td>
-                        <td>{{ c.full_name }}</td>
+                        <td>
+                            <a href="/clients/{{ c.id }}" class="text-decoration-none">
+                                {{ c.full_name }}
+                            </a>
+                        </td>
                         <td>{{ c.address }}</td>
                         <td>{{ c.phone|default('—') }}</td>
                     </tr>

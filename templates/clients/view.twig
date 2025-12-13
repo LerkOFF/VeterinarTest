@@ -1,0 +1,58 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h1 class="h4 mb-1">{{ client.full_name }}</h1>
+            <div class="text-muted small">
+                {% if client.address %}Адрес: {{ client.address }}{% endif %}
+                {% if client.address and client.phone %} · {% endif %}
+                {% if client.phone %}Телефон: {{ client.phone }}{% endif %}
+                {% if not client.address and not client.phone %}Данные клиента{% endif %}
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="/clients">К списку</a>
+            <a class="btn btn-primary" href="/clients/{{ client.id }}/pets/create">+ Питомец</a>
+        </div>
+    </div>
+
+    {% if client.notes %}
+        <div class="alert alert-info">
+            <strong>Заметки:</strong> {{ client.notes }}
+        </div>
+    {% endif %}
+
+    <div class="bg-white rounded shadow-sm p-3">
+        <h2 class="h6 mb-3">Питомцы</h2>
+
+        <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th style="width: 70px;">ID</th>
+                    <th>Кличка</th>
+                    <th>Вид</th>
+                    <th>Порода</th>
+                    <th style="width: 140px;">Рождение</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for p in pets %}
+                    <tr>
+                        <td>{{ p.id }}</td>
+                        <td>{{ p.name }}</td>
+                        <td>{{ p.species|default('—') }}</td>
+                        <td>{{ p.breed|default('—') }}</td>
+                        <td>{{ p.birth_date_view|default('—') }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">Питомцев пока нет</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

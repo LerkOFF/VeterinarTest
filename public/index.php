@@ -30,6 +30,50 @@ $twig = new Environment(
 );
 
 /**
+ * Хелпер: преобразование даты из ДД-ММ-ГГГГ в YYYY-MM-DD для хранения в БД.
+ * Возвращает null, если пусто. Бросает исключение, если формат неверный.
+ */
+function normalizeBirthDateToIso(?string $ddmmyyyy): ?string
+{
+    $s = trim((string)$ddmmyyyy);
+    if ($s === '') {
+        return null;
+    }
+
+    if (!preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $s, $m)) {
+        throw new InvalidArgumentException('Дата рождения должна быть в формате ДД-ММ-ГГГГ.');
+    }
+
+    $day = (int)$m[1];
+    $month = (int)$m[2];
+    $year = (int)$m[3];
+
+    if (!checkdate($month, $day, $year)) {
+        throw new InvalidArgumentException('Дата рождения некорректна.');
+    }
+
+    return sprintf('%04d-%02d-%02d', $year, $month, $day);
+}
+
+/**
+ * Хелпер: отображение даты из YYYY-MM-DD в ДД-ММ-ГГГГ
+ */
+function formatIsoToDdMmYyyy(?string $iso): string
+{
+    $s = trim((string)$iso);
+    if ($s === '') {
+        return '';
+    }
+
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
+        // если в БД лежит что-то странное — просто покажем как есть
+        return $s;
+    }
+
+    return $m[3] . '-' . $m[2] . '-' . $m[1];
+}
+
+/**
  * Главная
  */
 $app->get('/', function (Request $request, Response $response) use ($twig) {
@@ -68,6 +112,7 @@ $app->get('/clients', function (Request $request, Response $response) use ($twig
 
 /**
  * Клиенты: создание (GET форма + POST сохранение)
+ * Обязательное: только ФИО
  */
 $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Response $response) use ($twig) {
     $errors = [];
@@ -87,7 +132,6 @@ $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Respon
         $data['notes']     = trim((string)($parsed['notes'] ?? ''));
 
         if ($data['full_name'] === '') $errors[] = 'ФИО клиента обязательно.';
-        if ($data['address'] === '')   $errors[] = 'Адрес обязателен.';
 
         if (!$errors) {
             $pdo = Db::pdo();
@@ -97,7 +141,7 @@ $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Respon
             );
             $stmt->execute([
                 ':full_name' => $data['full_name'],
-                ':address'   => $data['address'],
+                ':address'   => ($data['address'] !== '' ? $data['address'] : null),
                 ':phone'     => ($data['phone'] !== '' ? $data['phone'] : null),
                 ':notes'     => ($data['notes'] !== '' ? $data['notes'] : null),
             ]);
@@ -108,6 +152,123 @@ $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Respon
 
     $html = $twig->render('clients/create.twig', [
         'title' => 'Добавить клиента',
+        'errors' => $errors,
+        'data' => $data,
+    ]);
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
+/**
+ * Клиент: карточка + питомцы
+ */
+$app->get('/clients/{id}', function (Request $request, Response $response, array $args) use ($twig) {
+    $id = (int)($args['id'] ?? 0);
+
+    $pdo = Db::pdo();
+
+    $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
+    $stmt->execute([':id' => $id]);
+    $client = $stmt->fetch();
+
+    if (!$client) {
+        $response->getBody()->write('Client not found');
+        return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    $stmt = $pdo->prepare('SELECT * FROM pets WHERE client_id = :id ORDER BY id DESC');
+    $stmt->execute([':id' => $id]);
+    $petsRaw = $stmt->fetchAll();
+
+    // Приводим дату рождения к формату ДД-ММ-ГГГГ для отображения
+    $pets = [];
+    foreach ($petsRaw as $p) {
+        $p['birth_date_view'] = formatIsoToDdMmYyyy($p['birth_date'] ?? null);
+        $pets[] = $p;
+    }
+
+    $html = $twig->render('clients/view.twig', [
+        'title' => 'Карточка клиента',
+        'client' => $client,
+        'pets' => $pets,
+    ]);
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
+/**
+ * Питомец: добавление для конкретного клиента (GET форма + POST сохранение)
+ * Обязательное: только кличка
+ * Дата рождения: ввод ДД-ММ-ГГГГ, хранение YYYY-MM-DD
+ */
+$app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $request, Response $response, array $args) use ($twig) {
+    $clientId = (int)($args['id'] ?? 0);
+    $pdo = Db::pdo();
+
+    // клиент должен существовать
+    $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
+    $stmt->execute([':id' => $clientId]);
+    $client = $stmt->fetch();
+
+    if (!$client) {
+        $response->getBody()->write('Client not found');
+        return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    $errors = [];
+    $data = [
+        'name' => '',
+        'species' => '',
+        'breed' => '',
+        'birth_date' => '', // ДД-ММ-ГГГГ
+        'medications' => '',
+        'notes' => '',
+    ];
+
+    if ($request->getMethod() === 'POST') {
+        $parsed = (array)($request->getParsedBody() ?? []);
+
+        $data['name'] = trim((string)($parsed['name'] ?? ''));
+        $data['species'] = trim((string)($parsed['species'] ?? ''));
+        $data['breed'] = trim((string)($parsed['breed'] ?? ''));
+        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? '')); // ДД-ММ-ГГГГ
+        $data['medications'] = trim((string)($parsed['medications'] ?? ''));
+        $data['notes'] = trim((string)($parsed['notes'] ?? ''));
+
+        if ($data['name'] === '') $errors[] = 'Кличка питомца обязательна.';
+
+        $birthIso = null;
+        try {
+            $birthIso = normalizeBirthDateToIso($data['birth_date']);
+        } catch (InvalidArgumentException $e) {
+            $errors[] = $e->getMessage();
+        }
+
+        if (!$errors) {
+            $stmt = $pdo->prepare(
+                'INSERT INTO pets (client_id, name, species, breed, birth_date, medications, notes, created_at, updated_at)
+                 VALUES (:client_id, :name, :species, :breed, :birth_date, :medications, :notes, datetime(\'now\'), datetime(\'now\'))'
+            );
+
+            $stmt->execute([
+                ':client_id' => $clientId,
+                ':name' => $data['name'],
+                ':species' => ($data['species'] !== '' ? $data['species'] : null),
+                ':breed' => ($data['breed'] !== '' ? $data['breed'] : null),
+                ':birth_date' => $birthIso,
+                ':medications' => ($data['medications'] !== '' ? $data['medications'] : null),
+                ':notes' => ($data['notes'] !== '' ? $data['notes'] : null),
+            ]);
+
+            return $response->withHeader('Location', '/clients/' . $clientId)->withStatus(302);
+        }
+    }
+
+    $html = $twig->render('pets/create.twig', [
+        'title' => 'Добавить питомца',
+        'client' => $client,
         'errors' => $errors,
         'data' => $data,
     ]);

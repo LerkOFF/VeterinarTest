@@ -1,0 +1,55 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h1 class="h4 mb-1">Добавить питомца</h1>
+            <div class="text-muted small">Клиент: {{ client.full_name }}</div>
+        </div>
+        <a class="btn btn-outline-secondary" href="/clients/{{ client.id }}">Назад</a>
+    </div>
+
+    {% if errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for e in errors %}
+                    <li>{{ e }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded shadow-sm p-4">
+        <div class="mb-3">
+            <label class="form-label">Кличка <span class="text-danger">*</span></label>
+            <input class="form-control" name="name" value="{{ data.name }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Вид питомца</label>
+            <input class="form-control" name="species" value="{{ data.species }}" placeholder="Кот / Собака / ...">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Порода</label>
+            <input class="form-control" name="breed" value="{{ data.breed }}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Дата рождения (ДД-ММ-ГГГГ)</label>
+            <input class="form-control" name="birth_date" value="{{ data.birth_date }}" placeholder="например 17-05-2020">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Лекарства (пока текстом)</label>
+            <textarea class="form-control" name="medications" rows="2">{{ data.medications }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Заметки</label>
+            <textarea class="form-control" name="notes" rows="3">{{ data.notes }}</textarea>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+    </form>
+{% endblock %}
