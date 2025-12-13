@@ -1,21 +1,83 @@
 {% extends "layout.twig" %}
 
 {% block content %}
-    <div class="card app-card app-shadow">
-        <div class="card-body p-4 p-md-5">
-            <h1 class="h3 fw-bold mb-2">ВетКлиника</h1>
-            <p class="muted mb-4">ВетКлиника — локальная система</p>
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card app-card app-shadow">
+                <div class="card-body p-4 p-md-5">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                        <div>
+                            <h1 class="h3 fw-bold mb-2">ВетКлиника</h1>
+                            <div class="muted">
+                                Локальная система учёта клиентов, питомцев и визитов
+                            </div>
+                        </div>
 
-            <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-primary" href="/clients">Открыть клиентов</a>
-                <a class="btn btn-outline-primary" href="/pets">Открыть питомцев</a>
-                <a class="btn btn-success btn-edit" href="/clients/create">+ Добавить клиента</a>
-            </div>
+                        <div class="text-end">
+                            <div class="badge text-bg-success fs-6">Локально • SQLite</div>
+                            <div class="muted small mt-2">Быстро • без лишней нагрузки</div>
+                        </div>
+                    </div>
 
-            <hr class="my-4">
+                    <hr class="my-4">
 
-            <div class="muted">
-                Ты прекрасна в любое время!
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <a href="/clients" class="text-decoration-none">
+                                <div class="card app-card app-shadow h-100">
+                                    <div class="card-body p-4">
+                                        <div class="fw-bold fs-5 mb-1">Клиенты</div>
+                                        <div class="muted small mb-3">
+                                            Поиск, карточки, контакты
+                                        </div>
+                                        <div class="btn btn-outline-primary w-100">
+                                            Открыть
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <a href="/pets" class="text-decoration-none">
+                                <div class="card app-card app-shadow h-100">
+                                    <div class="card-body p-4">
+                                        <div class="fw-bold fs-5 mb-1">Питомцы</div>
+                                        <div class="muted small mb-3">
+                                            Порода, лекарства, история
+                                        </div>
+                                        <div class="btn btn-outline-primary w-100">
+                                            Открыть
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <a href="/visits/journal" class="text-decoration-none">
+                                <div class="card app-card app-shadow h-100">
+                                    <div class="card-body p-4">
+                                        <div class="fw-bold fs-5 mb-1">Журнал визитов</div>
+                                        <div class="muted small mb-3">
+                                            Кто и когда придёт
+                                        </div>
+                                        <div class="btn btn-outline-primary w-100">
+                                            Открыть
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="muted small">
+                            Чтобы записать клиента на приём, откройте карточку клиента
+                            и используйте «Быстро добавить визит».
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
