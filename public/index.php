@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// На PHP 8.5 могут сыпаться Deprecated из зависимостей.
-// Для разработки скрываем, чтобы не мешало.
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', '1');
 
@@ -16,29 +14,21 @@ use Twig\Loader\FilesystemLoader;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Инициализация БД и схемы
 Schema::ensure();
 
 $app = AppFactory::create();
 $app->addRoutingMiddleware();
 $app->addErrorMiddleware(true, true, true);
 
-// Twig
 $twig = new Environment(
     new FilesystemLoader(__DIR__ . '/../templates'),
     ['cache' => false]
 );
 
-/**
- * Хелпер: преобразование даты из ДД-ММ-ГГГГ в YYYY-MM-DD для хранения в БД.
- * Возвращает null, если пусто. Бросает исключение, если формат неверный.
- */
 function normalizeBirthDateToIso(?string $ddmmyyyy): ?string
 {
     $s = trim((string)$ddmmyyyy);
-    if ($s === '') {
-        return null;
-    }
+    if ($s === '') return null;
 
     if (!preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $s, $m)) {
         throw new \InvalidArgumentException('Дата рождения должна быть в формате ДД-ММ-ГГГГ.');
@@ -55,15 +45,10 @@ function normalizeBirthDateToIso(?string $ddmmyyyy): ?string
     return sprintf('%04d-%02d-%02d', $year, $month, $day);
 }
 
-/**
- * Хелпер: отображение даты из YYYY-MM-DD в ДД-ММ-ГГГГ
- */
 function formatIsoToDdMmYyyy(?string $iso): string
 {
     $s = trim((string)$iso);
-    if ($s === '') {
-        return '';
-    }
+    if ($s === '') return '';
 
     if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
         return $s;
@@ -72,15 +57,10 @@ function formatIsoToDdMmYyyy(?string $iso): string
     return $m[3] . '-' . $m[2] . '-' . $m[1];
 }
 
-/**
- * Хелпер: проверка даты визита (ДД-ММ-ГГГГ) — возвращает null если пусто
- */
 function normalizeVisitDate(?string $ddmmyyyy): ?string
 {
     $s = trim((string)$ddmmyyyy);
-    if ($s === '') {
-        return null;
-    }
+    if ($s === '') return null;
 
     if (!preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $s, $m)) {
         throw new \InvalidArgumentException('Дата визита должна быть в формате ДД-ММ-ГГГГ.');
@@ -94,18 +74,13 @@ function normalizeVisitDate(?string $ddmmyyyy): ?string
         throw new \InvalidArgumentException('Дата визита некорректна.');
     }
 
-    return $s; // для визитов храним ДД-ММ-ГГГГ
+    return $s;
 }
 
-/**
- * Хелпер: проверка времени визита (ЧЧ:ММ) — возвращает null если пусто
- */
 function normalizeVisitTime(?string $hhmm): ?string
 {
     $s = trim((string)$hhmm);
-    if ($s === '') {
-        return null;
-    }
+    if ($s === '') return null;
 
     if (!preg_match('/^(\d{2}):(\d{2})$/', $s, $m)) {
         throw new \InvalidArgumentException('Время визита должно быть в формате ЧЧ:ММ.');
@@ -122,20 +97,28 @@ function normalizeVisitTime(?string $hhmm): ?string
 }
 
 /**
- * Главная
+ * Защита: разрешаем "back" только на внутренние пути вида "/something"
  */
-$app->get('/', function (Request $request, Response $response) use ($twig) {
-    $html = $twig->render('home.twig', [
-        'title' => 'ВетКлиника — локальная система',
-    ]);
+function sanitizeBack(?string $back): ?string
+{
+    $b = trim((string)$back);
+    if ($b === '') return null;
 
+    // Разрешаем только относительные пути, начинающиеся с /
+    if (!str_starts_with($b, '/')) return null;
+
+    // Запрещаем попытки подсунуть протокол через //example.com
+    if (str_starts_with($b, '//')) return null;
+
+    return $b;
+}
+
+$app->get('/', function (Request $request, Response $response) use ($twig) {
+    $html = $twig->render('home.twig', ['title' => 'ВетКлиника — локальная система']);
     $response->getBody()->write($html);
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Клиенты: список + поиск
- */
 $app->get('/clients', function (Request $request, Response $response) use ($twig) {
     $q = trim((string)($request->getQueryParams()['q'] ?? ''));
 
@@ -158,18 +141,9 @@ $app->get('/clients', function (Request $request, Response $response) use ($twig
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Клиенты: создание (GET форма + POST сохранение)
- * Обязательное: только ФИО
- */
 $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Response $response) use ($twig) {
     $errors = [];
-    $data = [
-        'full_name' => '',
-        'address' => '',
-        'phone' => '',
-        'notes' => '',
-    ];
+    $data = ['full_name' => '', 'address' => '', 'phone' => '', 'notes' => ''];
 
     if ($request->getMethod() === 'POST') {
         $parsed = (array)($request->getParsedBody() ?? []);
@@ -209,11 +183,80 @@ $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Respon
 });
 
 /**
- * Клиент: карточка + питомцы
+ * Клиент: редактирование (поддержка ?back=/clients)
  */
+$app->map(['GET', 'POST'], '/clients/{id}/edit', function (Request $request, Response $response, array $args) use ($twig) {
+    $clientId = (int)($args['id'] ?? 0);
+    $pdo = Db::pdo();
+
+    $query = $request->getQueryParams();
+    $back = sanitizeBack($query['back'] ?? null);
+    $defaultBack = '/clients/' . $clientId;
+    $backUrl = $back ?? $defaultBack;
+
+    $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
+    $stmt->execute([':id' => $clientId]);
+    $client = $stmt->fetch();
+
+    if (!$client) {
+        $response->getBody()->write('Client not found');
+        return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    $errors = [];
+    $data = [
+        'full_name' => (string)($client['full_name'] ?? ''),
+        'address' => (string)($client['address'] ?? ''),
+        'phone' => (string)($client['phone'] ?? ''),
+        'notes' => (string)($client['notes'] ?? ''),
+    ];
+
+    if ($request->getMethod() === 'POST') {
+        $parsed = (array)($request->getParsedBody() ?? []);
+
+        $data['full_name'] = trim((string)($parsed['full_name'] ?? ''));
+        $data['address']   = trim((string)($parsed['address'] ?? ''));
+        $data['phone']     = trim((string)($parsed['phone'] ?? ''));
+        $data['notes']     = trim((string)($parsed['notes'] ?? ''));
+
+        if ($data['full_name'] === '') $errors[] = 'ФИО клиента обязательно.';
+
+        if (!$errors) {
+            $stmt = $pdo->prepare(
+                'UPDATE clients
+                 SET full_name = :full_name,
+                     address = :address,
+                     phone = :phone,
+                     notes = :notes,
+                     updated_at = datetime(\'now\')
+                 WHERE id = :id'
+            );
+            $stmt->execute([
+                ':full_name' => $data['full_name'],
+                ':address'   => ($data['address'] !== '' ? $data['address'] : null),
+                ':phone'     => ($data['phone'] !== '' ? $data['phone'] : null),
+                ':notes'     => ($data['notes'] !== '' ? $data['notes'] : null),
+                ':id'        => $clientId,
+            ]);
+
+            return $response->withHeader('Location', $backUrl)->withStatus(302);
+        }
+    }
+
+    $html = $twig->render('clients/edit.twig', [
+        'title' => 'Редактировать клиента',
+        'client' => $client,
+        'errors' => $errors,
+        'data' => $data,
+        'back_url' => $backUrl,
+    ]);
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
 $app->get('/clients/{id}', function (Request $request, Response $response, array $args) use ($twig) {
     $id = (int)($args['id'] ?? 0);
-
     $pdo = Db::pdo();
 
     $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
@@ -245,9 +288,6 @@ $app->get('/clients/{id}', function (Request $request, Response $response, array
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Питомец: добавление для конкретного клиента
- */
 $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $request, Response $response, array $args) use ($twig) {
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -266,7 +306,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
         'name' => '',
         'species' => '',
         'breed' => '',
-        'birth_date' => '', // ДД-ММ-ГГГГ
+        'birth_date' => '',
         'medications' => '',
         'notes' => '',
     ];
@@ -318,9 +358,6 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Питомцы: общий список + поиск
- */
 $app->get('/pets', function (Request $request, Response $response) use ($twig) {
     $q = trim((string)($request->getQueryParams()['q'] ?? ''));
 
@@ -361,9 +398,6 @@ $app->get('/pets', function (Request $request, Response $response) use ($twig) {
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Питомец: карточка + визиты
- */
 $app->get('/pets/{id}', function (Request $request, Response $response, array $args) use ($twig) {
     $id = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -384,12 +418,7 @@ $app->get('/pets/{id}', function (Request $request, Response $response, array $a
 
     $pet['birth_date_view'] = formatIsoToDdMmYyyy($pet['birth_date'] ?? null);
 
-    $stmt = $pdo->prepare(
-        'SELECT *
-         FROM visits
-         WHERE pet_id = :id
-         ORDER BY id DESC'
-    );
+    $stmt = $pdo->prepare('SELECT * FROM visits WHERE pet_id = :id ORDER BY id DESC');
     $stmt->execute([':id' => $id]);
     $visits = $stmt->fetchAll();
 
@@ -403,14 +432,10 @@ $app->get('/pets/{id}', function (Request $request, Response $response, array $a
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Питомец: редактирование
- */
 $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Response $response, array $args) use ($twig) {
     $petId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
 
-    // питомец + клиент
     $stmt = $pdo->prepare(
         'SELECT p.*, c.full_name AS client_full_name
          FROM pets p
@@ -430,7 +455,7 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
         'name' => (string)($pet['name'] ?? ''),
         'species' => (string)($pet['species'] ?? ''),
         'breed' => (string)($pet['breed'] ?? ''),
-        'birth_date' => formatIsoToDdMmYyyy($pet['birth_date'] ?? null), // ДД-ММ-ГГГГ
+        'birth_date' => formatIsoToDdMmYyyy($pet['birth_date'] ?? null),
         'medications' => (string)($pet['medications'] ?? ''),
         'notes' => (string)($pet['notes'] ?? ''),
     ];
@@ -489,15 +514,10 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Питомец: удаление (только POST)
- * Важно: у pets FK RESTRICT, а у visits FK RESTRICT -> сначала удаляем визиты питомца.
- */
 $app->post('/pets/{id}/delete', function (Request $request, Response $response, array $args) {
     $petId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
 
-    // найдём питомца, чтобы понять куда редиректить после удаления
     $stmt = $pdo->prepare('SELECT id, client_id FROM pets WHERE id = :id');
     $stmt->execute([':id' => $petId]);
     $pet = $stmt->fetch();
@@ -506,21 +526,15 @@ $app->post('/pets/{id}/delete', function (Request $request, Response $response, 
         return $response->withHeader('Location', '/pets')->withStatus(302);
     }
 
-    // 1) удалить визиты питомца
     $stmt = $pdo->prepare('DELETE FROM visits WHERE pet_id = :id');
     $stmt->execute([':id' => $petId]);
 
-    // 2) удалить питомца
     $stmt = $pdo->prepare('DELETE FROM pets WHERE id = :id');
     $stmt->execute([':id' => $petId]);
 
-    // после удаления — возвращаемся в карточку клиента
     return $response->withHeader('Location', '/clients/' . (int)$pet['client_id'])->withStatus(302);
 });
 
-/**
- * Визит: добавление для питомца
- */
 $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $request, Response $response, array $args) use ($twig) {
     $petId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -599,9 +613,6 @@ $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $reques
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Визит: редактирование
- */
 $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Request $request, Response $response, array $args) use ($twig) {
     $petId = (int)($args['petId'] ?? 0);
     $visitId = (int)($args['visitId'] ?? 0);
@@ -699,9 +710,6 @@ $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Requ
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Визит: удаление
- */
 $app->post('/pets/{petId}/visits/{visitId}/delete', function (Request $request, Response $response, array $args) {
     $petId = (int)($args['petId'] ?? 0);
     $visitId = (int)($args['visitId'] ?? 0);

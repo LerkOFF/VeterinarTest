@@ -29,7 +29,7 @@
                     <th>ФИО</th>
                     <th>Адрес</th>
                     <th style="width: 180px;">Телефон</th>
-                    <th style="width: 150px;">Последний визит</th>
+                    <th style="width: 160px;">Действия</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -43,7 +43,11 @@
                         </td>
                         <td>{{ c.address|default('—') }}</td>
                         <td>{{ c.phone|default('—') }}</td>
-                        <td>{{ c.last_visit_view ? c.last_visit_view : '—' }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a class="btn btn-sm btn-success" href="/clients/{{ c.id }}/edit?back=/clients">Редактировать</a>
+                            </div>
+                        </td>
                     </tr>
                 {% else %}
                     <tr>
