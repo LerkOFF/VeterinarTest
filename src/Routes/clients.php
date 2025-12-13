@@ -197,7 +197,7 @@ return static function (App $app, Environment $twig): void {
     });
 
     /**
-     * Клиент: карточка + питомцы
+     * Клиент: карточка + питомцы + быстрый визит
      */
     $app->get('/clients/{id}', function (Request $request, Response $response, array $args) use ($twig) {
         $id = (int)($args['id'] ?? 0);
@@ -222,10 +222,30 @@ return static function (App $app, Environment $twig): void {
             $pets[] = $p;
         }
 
+        $query = $request->getQueryParams();
+        $quickOpen = (string)($query['quick'] ?? '') === '1';
+        $quickSaved = (string)($query['saved'] ?? '') === '1';
+
+        $quickData = [
+            'pet_id' => '',
+            'visit_date' => '',
+            'visit_time' => '',
+            'complaint' => '',
+            'diagnosis' => '',
+            'procedures' => '',
+            'recommendations' => '',
+        ];
+
         $html = $twig->render('clients/view.twig', [
             'title' => 'Карточка клиента',
             'client' => $client,
             'pets' => $pets,
+
+            // быстрый визит
+            'quick_open' => $quickOpen,
+            'quick_saved' => $quickSaved,
+            'quick_errors' => [],
+            'quick' => $quickData,
         ]);
 
         $response->getBody()->write($html);
@@ -233,7 +253,7 @@ return static function (App $app, Environment $twig): void {
     });
 
     /**
-     * Питомец: добавление (привязан к клиенту, пока здесь)
+     * Питомец: добавление (привязан к клиенту)
      */
     $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $request, Response $response, array $args) use ($twig) {
         $clientId = (int)($args['id'] ?? 0);
@@ -303,5 +323,103 @@ return static function (App $app, Environment $twig): void {
 
         $response->getBody()->write($html);
         return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+    });
+
+    /**
+     * БЫСТРЫЙ ВИЗИТ: добавление прямо из карточки клиента (POST)
+     */
+    $app->post('/clients/{id}/visits/quick', function (Request $request, Response $response, array $args) use ($twig) {
+        $clientId = (int)($args['id'] ?? 0);
+        $pdo = Db::pdo();
+
+        $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
+        $stmt->execute([':id' => $clientId]);
+        $client = $stmt->fetch();
+
+        if (!$client) {
+            $response->getBody()->write('Client not found');
+            return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+        }
+
+        // питомцы клиента (нужно для select + проверки pet_id)
+        $stmt = $pdo->prepare('SELECT * FROM pets WHERE client_id = :id ORDER BY id DESC');
+        $stmt->execute([':id' => $clientId]);
+        $petsRaw = $stmt->fetchAll();
+
+        $pets = [];
+        $petIds = [];
+        foreach ($petsRaw as $p) {
+            $petIds[] = (int)$p['id'];
+            $p['birth_date_view'] = DateHelper::formatIsoToDdMmYyyy($p['birth_date'] ?? null);
+            $pets[] = $p;
+        }
+
+        $parsed = (array)($request->getParsedBody() ?? []);
+
+        $quick = [
+            'pet_id' => trim((string)($parsed['pet_id'] ?? '')),
+            'visit_date' => trim((string)($parsed['visit_date'] ?? '')),
+            'visit_time' => trim((string)($parsed['visit_time'] ?? '')),
+            'complaint' => trim((string)($parsed['complaint'] ?? '')),
+            'diagnosis' => trim((string)($parsed['diagnosis'] ?? '')),
+            'procedures' => trim((string)($parsed['procedures'] ?? '')),
+            'recommendations' => trim((string)($parsed['recommendations'] ?? '')),
+        ];
+
+        $errors = [];
+
+        $petId = (int)$quick['pet_id'];
+        if ($petId <= 0) {
+            $errors[] = 'Выберите питомца.';
+        } elseif (!in_array($petId, $petIds, true)) {
+            $errors[] = 'Выбранный питомец не принадлежит этому клиенту.';
+        }
+
+        $visitDate = null;
+        $visitTime = null;
+
+        if ($quick['visit_date'] === '') $errors[] = 'Дата визита обязательна.';
+        if ($quick['visit_time'] === '') $errors[] = 'Время визита обязательно.';
+
+        if (!$errors) {
+            try { $visitDate = DateHelper::normalizeVisitDate($quick['visit_date']); }
+            catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
+
+            try { $visitTime = DateHelper::normalizeVisitTime($quick['visit_time']); }
+            catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
+        }
+
+        if ($errors) {
+            $html = $twig->render('clients/view.twig', [
+                'title' => 'Карточка клиента',
+                'client' => $client,
+                'pets' => $pets,
+
+                'quick_open' => true,
+                'quick_saved' => false,
+                'quick_errors' => $errors,
+                'quick' => $quick,
+            ]);
+
+            $response->getBody()->write($html);
+            return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+        }
+
+        $stmt = $pdo->prepare(
+            'INSERT INTO visits (pet_id, visit_date, visit_time, complaint, diagnosis, procedures, recommendations, created_at, updated_at)
+             VALUES (:pet_id, :visit_date, :visit_time, :complaint, :diagnosis, :procedures, :recommendations, datetime(\'now\'), datetime(\'now\'))'
+        );
+
+        $stmt->execute([
+            ':pet_id' => $petId,
+            ':visit_date' => $visitDate,
+            ':visit_time' => $visitTime,
+            ':complaint' => ($quick['complaint'] !== '' ? $quick['complaint'] : null),
+            ':diagnosis' => ($quick['diagnosis'] !== '' ? $quick['diagnosis'] : null),
+            ':procedures' => ($quick['procedures'] !== '' ? $quick['procedures'] : null),
+            ':recommendations' => ($quick['recommendations'] !== '' ? $quick['recommendations'] : null),
+        ]);
+
+        return $response->withHeader('Location', '/clients/' . $clientId . '?quick=1&saved=1#quick-visit')->withStatus(302);
     });
 };
