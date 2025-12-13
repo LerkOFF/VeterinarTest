@@ -60,6 +60,7 @@
                     <th style="width: 100px;">Время</th>
                     <th>Жалоба</th>
                     <th>Диагноз</th>
+                    <th style="width: 190px;">Действия</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -70,10 +71,22 @@
                         <td>{{ v.visit_time|default('—') }}</td>
                         <td>{{ v.complaint|default('—') }}</td>
                         <td>{{ v.diagnosis|default('—') }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   href="/pets/{{ pet.id }}/visits/{{ v.id }}/edit">Редактировать</a>
+
+                                <form method="post"
+                                      action="/pets/{{ pet.id }}/visits/{{ v.id }}/delete"
+                                      onsubmit="return confirm('Удалить визит #{{ v.id }}?');">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Удалить</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                     {% if v.procedures or v.recommendations %}
                         <tr>
-                            <td colspan="5" class="small text-muted">
+                            <td colspan="6" class="small text-muted">
                                 {% if v.procedures %}<div><strong>Процедуры:</strong> {{ v.procedures }}</div>{% endif %}
                                 {% if v.recommendations %}<div><strong>Рекомендации:</strong> {{ v.recommendations }}</div>{% endif %}
                             </td>
@@ -81,7 +94,7 @@
                     {% endif %}
                 {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">Визитов пока нет</td>
+                        <td colspan="6" class="text-center text-muted py-4">Визитов пока нет</td>
                     </tr>
                 {% endfor %}
                 </tbody>

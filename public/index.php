@@ -122,26 +122,6 @@ function normalizeVisitTime(?string $hhmm): ?string
 }
 
 /**
- * SQL-фрагмент: берём последнюю дату визита клиента как ISO (YYYY-MM-DD),
- * преобразуя visit_date из ДД-ММ-ГГГГ -> YYYY-MM-DD для корректного MAX().
- */
-function sqlLastVisitIsoByClient(string $clientIdSqlExpr = 'c.id'): string
-{
-    return "
-        (
-            SELECT MAX(
-                substr(v.visit_date, 7, 4) || '-' || substr(v.visit_date, 4, 2) || '-' || substr(v.visit_date, 1, 2)
-            )
-            FROM pets p
-            JOIN visits v ON v.pet_id = p.id
-            WHERE p.client_id = {$clientIdSqlExpr}
-              AND v.visit_date IS NOT NULL
-              AND v.visit_date <> ''
-        ) AS last_visit_iso
-    ";
-}
-
-/**
  * Главная
  */
 $app->get('/', function (Request $request, Response $response) use ($twig) {
@@ -154,38 +134,18 @@ $app->get('/', function (Request $request, Response $response) use ($twig) {
 });
 
 /**
- * Клиенты: список + поиск + последний визит
+ * Клиенты: список + поиск
  */
 $app->get('/clients', function (Request $request, Response $response) use ($twig) {
     $q = trim((string)($request->getQueryParams()['q'] ?? ''));
 
     $pdo = Db::pdo();
-
-    $lastVisitSql = sqlLastVisitIsoByClient('c.id');
-
     if ($q !== '') {
-        $stmt = $pdo->prepare("
-            SELECT c.*,
-                   {$lastVisitSql}
-            FROM clients c
-            WHERE c.full_name LIKE :q OR c.phone LIKE :q
-            ORDER BY c.id DESC
-        ");
+        $stmt = $pdo->prepare('SELECT * FROM clients WHERE full_name LIKE :q OR phone LIKE :q ORDER BY id DESC');
         $stmt->execute([':q' => "%$q%"]);
-        $clientsRaw = $stmt->fetchAll();
+        $clients = $stmt->fetchAll();
     } else {
-        $clientsRaw = $pdo->query("
-            SELECT c.*,
-                   {$lastVisitSql}
-            FROM clients c
-            ORDER BY c.id DESC
-        ")->fetchAll();
-    }
-
-    $clients = [];
-    foreach ($clientsRaw as $c) {
-        $c['last_visit_view'] = ($c['last_visit_iso'] ?? null) ? formatIsoToDdMmYyyy((string)$c['last_visit_iso']) : '';
-        $clients[] = $c;
+        $clients = $pdo->query('SELECT * FROM clients ORDER BY id DESC')->fetchAll();
     }
 
     $html = $twig->render('clients/index.twig', [
@@ -249,10 +209,11 @@ $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Respon
 });
 
 /**
- * Клиент: карточка + питомцы + последний визит
+ * Клиент: карточка + питомцы
  */
 $app->get('/clients/{id}', function (Request $request, Response $response, array $args) use ($twig) {
     $id = (int)($args['id'] ?? 0);
+
     $pdo = Db::pdo();
 
     $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
@@ -264,17 +225,6 @@ $app->get('/clients/{id}', function (Request $request, Response $response, array
         return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
     }
 
-    // Последний визит (ISO) -> view
-    $stmt = $pdo->prepare("
-        SELECT " . sqlLastVisitIsoByClient(':id') . "
-    ");
-    $stmt->execute([':id' => $id]);
-    $last = $stmt->fetch();
-
-    $client['last_visit_iso'] = $last['last_visit_iso'] ?? null;
-    $client['last_visit_view'] = ($client['last_visit_iso'] ?? null) ? formatIsoToDdMmYyyy((string)$client['last_visit_iso']) : '';
-
-    // Питомцы клиента
     $stmt = $pdo->prepare('SELECT * FROM pets WHERE client_id = :id ORDER BY id DESC');
     $stmt->execute([':id' => $id]);
     $petsRaw = $stmt->fetchAll();
@@ -304,6 +254,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
 
+    // клиент должен существовать
     $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
     $stmt->execute([':id' => $clientId]);
     $client = $stmt->fetch();
@@ -329,7 +280,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
         $data['name'] = trim((string)($parsed['name'] ?? ''));
         $data['species'] = trim((string)($parsed['species'] ?? ''));
         $data['breed'] = trim((string)($parsed['breed'] ?? ''));
-        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? ''));
+        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? '')); // ДД-ММ-ГГГГ
         $data['medications'] = trim((string)($parsed['medications'] ?? ''));
         $data['notes'] = trim((string)($parsed['notes'] ?? ''));
 
@@ -374,7 +325,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
 });
 
 /**
- * Питомцы: общий список + поиск по кличке/виду/породе/ФИО клиента
+ * Питомцы: общий список + поиск
  */
 $app->get('/pets', function (Request $request, Response $response) use ($twig) {
     $q = trim((string)($request->getQueryParams()['q'] ?? ''));
@@ -439,7 +390,6 @@ $app->get('/pets/{id}', function (Request $request, Response $response, array $a
 
     $pet['birth_date_view'] = formatIsoToDdMmYyyy($pet['birth_date'] ?? null);
 
-    // визиты питомца
     $stmt = $pdo->prepare(
         'SELECT *
          FROM visits
@@ -466,7 +416,6 @@ $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $reques
     $petId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
 
-    // питомец + клиент
     $stmt = $pdo->prepare(
         'SELECT p.*, c.full_name AS client_full_name
          FROM pets p
@@ -483,8 +432,8 @@ $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $reques
 
     $errors = [];
     $data = [
-        'visit_date' => '', // ДД-ММ-ГГГГ
-        'visit_time' => '', // ЧЧ:ММ
+        'visit_date' => '',
+        'visit_time' => '',
         'complaint' => '',
         'diagnosis' => '',
         'procedures' => '',
@@ -504,17 +453,11 @@ $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $reques
         $visitDate = null;
         $visitTime = null;
 
-        try {
-            $visitDate = normalizeVisitDate($data['visit_date']);
-        } catch (\InvalidArgumentException $e) {
-            $errors[] = $e->getMessage();
-        }
+        try { $visitDate = normalizeVisitDate($data['visit_date']); }
+        catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
-        try {
-            $visitTime = normalizeVisitTime($data['visit_time']);
-        } catch (\InvalidArgumentException $e) {
-            $errors[] = $e->getMessage();
-        }
+        try { $visitTime = normalizeVisitTime($data['visit_time']); }
+        catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
         if (!$errors) {
             $stmt = $pdo->prepare(
@@ -545,6 +488,122 @@ $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $reques
 
     $response->getBody()->write($html);
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
+/**
+ * Визит: редактирование
+ */
+$app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Request $request, Response $response, array $args) use ($twig) {
+    $petId = (int)($args['petId'] ?? 0);
+    $visitId = (int)($args['visitId'] ?? 0);
+    $pdo = Db::pdo();
+
+    // питомец + клиент
+    $stmt = $pdo->prepare(
+        'SELECT p.*, c.full_name AS client_full_name
+         FROM pets p
+         JOIN clients c ON c.id = p.client_id
+         WHERE p.id = :id'
+    );
+    $stmt->execute([':id' => $petId]);
+    $pet = $stmt->fetch();
+
+    if (!$pet) {
+        $response->getBody()->write('Pet not found');
+        return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    // визит должен принадлежать этому питомцу
+    $stmt = $pdo->prepare('SELECT * FROM visits WHERE id = :vid AND pet_id = :pid');
+    $stmt->execute([':vid' => $visitId, ':pid' => $petId]);
+    $visit = $stmt->fetch();
+
+    if (!$visit) {
+        $response->getBody()->write('Visit not found');
+        return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    $errors = [];
+    $data = [
+        'visit_date' => (string)($visit['visit_date'] ?? ''),
+        'visit_time' => (string)($visit['visit_time'] ?? ''),
+        'complaint' => (string)($visit['complaint'] ?? ''),
+        'diagnosis' => (string)($visit['diagnosis'] ?? ''),
+        'procedures' => (string)($visit['procedures'] ?? ''),
+        'recommendations' => (string)($visit['recommendations'] ?? ''),
+    ];
+
+    if ($request->getMethod() === 'POST') {
+        $parsed = (array)($request->getParsedBody() ?? []);
+
+        $data['visit_date'] = trim((string)($parsed['visit_date'] ?? ''));
+        $data['visit_time'] = trim((string)($parsed['visit_time'] ?? ''));
+        $data['complaint'] = trim((string)($parsed['complaint'] ?? ''));
+        $data['diagnosis'] = trim((string)($parsed['diagnosis'] ?? ''));
+        $data['procedures'] = trim((string)($parsed['procedures'] ?? ''));
+        $data['recommendations'] = trim((string)($parsed['recommendations'] ?? ''));
+
+        $visitDate = null;
+        $visitTime = null;
+
+        try { $visitDate = normalizeVisitDate($data['visit_date']); }
+        catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
+
+        try { $visitTime = normalizeVisitTime($data['visit_time']); }
+        catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
+
+        if (!$errors) {
+            $stmt = $pdo->prepare(
+                'UPDATE visits
+                 SET visit_date = :visit_date,
+                     visit_time = :visit_time,
+                     complaint = :complaint,
+                     diagnosis = :diagnosis,
+                     procedures = :procedures,
+                     recommendations = :recommendations,
+                     updated_at = datetime(\'now\')
+                 WHERE id = :id AND pet_id = :pet_id'
+            );
+
+            $stmt->execute([
+                ':visit_date' => $visitDate,
+                ':visit_time' => $visitTime,
+                ':complaint' => ($data['complaint'] !== '' ? $data['complaint'] : null),
+                ':diagnosis' => ($data['diagnosis'] !== '' ? $data['diagnosis'] : null),
+                ':procedures' => ($data['procedures'] !== '' ? $data['procedures'] : null),
+                ':recommendations' => ($data['recommendations'] !== '' ? $data['recommendations'] : null),
+                ':id' => $visitId,
+                ':pet_id' => $petId,
+            ]);
+
+            return $response->withHeader('Location', '/pets/' . $petId)->withStatus(302);
+        }
+    }
+
+    $html = $twig->render('visits/edit.twig', [
+        'title' => 'Редактировать визит',
+        'pet' => $pet,
+        'visit' => $visit,
+        'errors' => $errors,
+        'data' => $data,
+    ]);
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
+/**
+ * Визит: удаление (только POST)
+ */
+$app->post('/pets/{petId}/visits/{visitId}/delete', function (Request $request, Response $response, array $args) {
+    $petId = (int)($args['petId'] ?? 0);
+    $visitId = (int)($args['visitId'] ?? 0);
+    $pdo = Db::pdo();
+
+    $stmt = $pdo->prepare('DELETE FROM visits WHERE id = :vid AND pet_id = :pid');
+    $stmt->execute([':vid' => $visitId, ':pid' => $petId]);
+
+    return $response->withHeader('Location', '/pets/' . $petId)->withStatus(302);
 });
 
 $app->run();
