@@ -49,7 +49,7 @@
                         <td>{{ p.birth_date_view ? p.birth_date_view : '—' }}</td>
                         <td>
                             <div class="d-flex gap-2">
-                                <a class="btn btn-sm btn-success" href="/pets/{{ p.id }}/edit">Редактировать</a>
+                                <a class="btn btn-sm btn-success" href="/pets/{{ p.id }}/edit?back=/pets">Редактировать</a>
 
                                 <form method="post"
                                       action="/pets/{{ p.id }}/delete"

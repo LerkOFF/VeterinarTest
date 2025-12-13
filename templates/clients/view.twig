@@ -18,7 +18,7 @@
                     {% if client.address %}
                         <span class="badge text-bg-light border px-3 py-2">
               <span class="me-2">📍</span>
-              <span class="fw-semibold fs-5">{{ client.address }}</span>
+             <span class="fw-semibold fs-5">{{ client.address }}</span>
             </span>
                     {% endif %}
 
@@ -73,7 +73,7 @@
                         <td>{{ p.birth_date_view ? p.birth_date_view : '—' }}</td>
                         <td>
                             <div class="d-flex gap-2">
-                                <a class="btn btn-sm btn-success" href="/pets/{{ p.id }}/edit">Редактировать</a>
+                                <a class="btn btn-sm btn-success" href="/pets/{{ p.id }}/edit?back=/clients/{{ client.id }}">Редактировать</a>
 
                                 <form method="post"
                                       action="/pets/{{ p.id }}/delete"

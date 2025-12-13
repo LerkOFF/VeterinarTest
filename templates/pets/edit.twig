@@ -9,7 +9,8 @@
                 · Клиент: <a class="text-decoration-none" href="/clients/{{ pet.client_id }}">{{ pet.client_full_name }}</a>
             </div>
         </div>
-        <a class="btn btn-outline-secondary" href="/pets/{{ pet.id }}">Назад</a>
+
+        <a class="btn btn-outline-secondary" href="{{ back_url }}">Назад</a>
     </div>
 
     {% if errors %}
@@ -41,7 +42,7 @@
 
             <div class="col-md-6">
                 <label class="form-label">Дата рождения (ДД-ММ-ГГГГ)</label>
-                <input class="form-control" name="birth_date" value="{{ data.birth_date }}" placeholder="например 05-09-2019">
+                <input class="form-control" name="birth_date" value="{{ data.birth_date }}" placeholder="например: 05-11-2020">
             </div>
 
             <div class="col-12">
@@ -57,7 +58,7 @@
 
         <div class="mt-3 d-flex gap-2">
             <button class="btn btn-primary" type="submit">Сохранить</button>
-            <a class="btn btn-outline-secondary" href="/pets/{{ pet.id }}">Отмена</a>
+            <a class="btn btn-outline-secondary" href="{{ back_url }}">Отмена</a>
         </div>
 
         <div class="form-text mt-2">

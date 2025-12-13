@@ -104,10 +104,7 @@ function sanitizeBack(?string $back): ?string
     $b = trim((string)$back);
     if ($b === '') return null;
 
-    // Разрешаем только относительные пути, начинающиеся с /
     if (!str_starts_with($b, '/')) return null;
-
-    // Запрещаем попытки подсунуть протокол через //example.com
     if (str_starts_with($b, '//')) return null;
 
     return $b;
@@ -182,9 +179,6 @@ $app->map(['GET', 'POST'], '/clients/create', function (Request $request, Respon
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
-/**
- * Клиент: редактирование (поддержка ?back=/clients)
- */
 $app->map(['GET', 'POST'], '/clients/{id}/edit', function (Request $request, Response $response, array $args) use ($twig) {
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
@@ -432,9 +426,17 @@ $app->get('/pets/{id}', function (Request $request, Response $response, array $a
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
 
+/**
+ * Питомец: редактирование (умный back)
+ */
 $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Response $response, array $args) use ($twig) {
     $petId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
+
+    $query = $request->getQueryParams();
+    $back = sanitizeBack($query['back'] ?? null);
+    $defaultBack = '/pets/' . $petId;
+    $backUrl = $back ?? $defaultBack;
 
     $stmt = $pdo->prepare(
         'SELECT p.*, c.full_name AS client_full_name
@@ -499,7 +501,7 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
                 ':id' => $petId,
             ]);
 
-            return $response->withHeader('Location', '/pets/' . $petId)->withStatus(302);
+            return $response->withHeader('Location', $backUrl)->withStatus(302);
         }
     }
 
@@ -508,6 +510,7 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
         'pet' => $pet,
         'errors' => $errors,
         'data' => $data,
+        'back_url' => $backUrl,
     ]);
 
     $response->getBody()->write($html);
