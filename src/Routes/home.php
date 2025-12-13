@@ -8,7 +8,7 @@ use Twig\Environment;
 
 return static function (App $app, Environment $twig): void {
     $app->get('/', function (Request $request, Response $response) use ($twig) {
-        $html = $twig->render('home.twig', ['title' => 'ВетКлиника — локальная система']);
+        $html = $twig->render('home.twig', ['title' => 'ВетКлиника']);
         $response->getBody()->write($html);
         return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
     });

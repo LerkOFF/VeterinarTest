@@ -1,42 +1,48 @@
 {% extends "layout.twig" %}
 
 {% block content %}
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h1 class="h4 mb-0">Добавить клиента</h1>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 fw-bold m-0">Добавить клиента</h1>
         <a class="btn btn-outline-secondary" href="/clients">Назад</a>
     </div>
 
     {% if errors %}
         <div class="alert alert-danger">
+            <div class="fw-bold mb-2">Проверьте поля:</div>
             <ul class="mb-0">
-                {% for e in errors %}
-                    <li>{{ e }}</li>
-                {% endfor %}
+                {% for e in errors %}<li>{{ e|e }}</li>{% endfor %}
             </ul>
         </div>
     {% endif %}
 
-    <form method="post" class="bg-white rounded shadow-sm p-4">
-        <div class="mb-3">
-            <label class="form-label">ФИО <span class="text-danger">*</span></label>
-            <input class="form-control" name="full_name" value="{{ data.full_name }}" required>
-        </div>
+    <div class="card app-card app-shadow">
+        <div class="card-body p-4">
+            <form method="post" action="/clients/create" class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-semibold">ФИО *</label>
+                    <input class="form-control" name="full_name" value="{{ data.full_name|e }}" required>
+                </div>
 
-        <div class="mb-3">
-            <label class="form-label">Адрес</label>
-            <input class="form-control" name="address" value="{{ data.address }}">
-        </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold">Телефон</label>
+                    <input class="form-control" name="phone" value="{{ data.phone|e }}">
+                </div>
 
-        <div class="mb-3">
-            <label class="form-label">Телефон</label>
-            <input class="form-control" name="phone" value="{{ data.phone }}">
-        </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label fw-semibold">Адрес</label>
+                    <input class="form-control" name="address" value="{{ data.address|e }}">
+                </div>
 
-        <div class="mb-3">
-            <label class="form-label">Заметки</label>
-            <textarea class="form-control" name="notes" rows="3">{{ data.notes }}</textarea>
-        </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Заметки</label>
+                    <textarea class="form-control" name="notes" rows="3">{{ data.notes|e }}</textarea>
+                </div>
 
-        <button class="btn btn-primary" type="submit">Сохранить</button>
-    </form>
+                <div class="col-12 d-flex gap-2">
+                    <button class="btn btn-success btn-edit" type="submit">Сохранить</button>
+                    <a class="btn btn-outline-secondary" href="/clients">Отмена</a>
+                </div>
+            </form>
+        </div>
+    </div>
 {% endblock %}

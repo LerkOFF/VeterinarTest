@@ -1,102 +1,78 @@
 {% extends "layout.twig" %}
 
 {% block content %}
-    <div class="bg-white rounded shadow-sm p-4 mb-3">
-        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
-            <div>
-                <div class="text-muted small mb-1">Карточка клиента</div>
-                <h1 class="h3 mb-2">{{ client.full_name }}</h1>
-
-                <div class="d-flex flex-wrap gap-2">
-                    {% if client.phone %}
-                        <span class="badge text-bg-light border px-3 py-2">
-              <span class="me-2">📞</span>
-              <span class="fw-semibold fs-5">{{ client.phone }}</span>
-            </span>
-                    {% endif %}
-
-                    {% if client.address %}
-                        <span class="badge text-bg-light border px-3 py-2">
-              <span class="me-2">📍</span>
-              <span class="fw-semibold fs-5">{{ client.address }}</span>
-            </span>
-                    {% endif %}
-
-                    {% if not client.phone and not client.address %}
-                        <span class="text-muted">Телефон и адрес не указаны</span>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-outline-secondary" href="/clients">К списку</a>
-                <a class="btn btn-success" href="/clients/{{ client.id }}/edit">Редактировать клиента</a>
-
-                <form method="post"
-                      action="/clients/{{ client.id }}/delete"
-                      onsubmit="return confirm('Удалить клиента «{{ client.full_name }}» и всех его питомцев/визиты?');">
-                    <button class="btn btn-danger" type="submit">Удалить клиента</button>
-                </form>
-
-                <a class="btn btn-primary" href="/clients/{{ client.id }}/pets/create">+ Питомец</a>
-            </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h4 fw-bold m-0">Карточка клиента</h1>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="/clients">Назад</a>
+            <a class="btn btn-success btn-edit" href="/clients/{{ client.id }}/edit?back=/clients/{{ client.id }}">Редактировать</a>
+            <form method="post" action="/clients/{{ client.id }}/delete" onsubmit="return confirm('Удалить клиента и всех его питомцев/визиты?');">
+                <button class="btn btn-danger" type="submit">Удалить</button>
+            </form>
         </div>
-
-        {% if client.notes %}
-            <div class="mt-3">
-                <div class="fw-semibold mb-1">Заметки</div>
-                <div class="text-break text-muted">{{ client.notes }}</div>
-            </div>
-        {% endif %}
     </div>
 
-    <div class="bg-white rounded shadow-sm p-3">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-            <h2 class="h6 mb-0">Питомцы</h2>
-            <a class="btn btn-sm btn-outline-primary" href="/clients/{{ client.id }}/pets/create">Добавить питомца</a>
+    <div class="card app-card app-shadow mb-3">
+        <div class="card-body p-4">
+            <div class="fw-bold fs-4 mb-3">{{ client.full_name|e }}</div>
+
+            <div class="row g-3 kv">
+                <div class="col-12 col-md-6">
+                    <div class="label">Телефон</div>
+                    <div class="value" style="font-size: 1.25rem;">
+                        {{ client.phone ? client.phone|e : '—' }}
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="label">Адрес</div>
+                    <div class="value">{{ client.address ? client.address|e : '—' }}</div>
+                </div>
+
+                <div class="col-12">
+                    <div class="label">Заметки</div>
+                    <div class="value fw-normal">{{ client.notes ? client.notes|e : '—' }}</div>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <div class="table-responsive">
-            <table class="table table-striped mb-0 align-middle">
-                <thead>
-                <tr>
-                    <th style="width: 70px;">ID</th>
-                    <th>Кличка</th>
-                    <th>Вид</th>
-                    <th>Порода</th>
-                    <th style="width: 140px;">Рождение</th>
-                    <th style="width: 220px;">Действия</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for p in pets %}
-                    <tr>
-                        <td>{{ p.id }}</td>
-                        <td>
-                            <a href="/pets/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a>
-                        </td>
-                        <td>{{ p.species|default('—') }}</td>
-                        <td>{{ p.breed|default('—') }}</td>
-                        <td>{{ p.birth_date_view ? p.birth_date_view : '—' }}</td>
-                        <td>
-                            <div class="d-flex gap-2">
-                                <a class="btn btn-sm btn-success" href="/pets/{{ p.id }}/edit?back=/clients/{{ client.id }}">Редактировать</a>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h2 class="h5 fw-bold m-0">Питомцы</h2>
+        <a class="btn btn-success btn-edit" href="/clients/{{ client.id }}/pets/create">+ Добавить питомца</a>
+    </div>
 
-                                <form method="post"
-                                      action="/pets/{{ p.id }}/delete"
-                                      onsubmit="return confirm('Удалить питомца «{{ p.name }}» и все его визиты?');">
-                                    <button class="btn btn-sm btn-danger" type="submit">Удалить</button>
-                                </form>
+    <div class="card app-card app-shadow">
+        <div class="card-body p-0">
+            {% if pets is empty %}
+                <div class="p-4 muted">У клиента пока нет питомцев.</div>
+            {% else %}
+                <div class="list-group list-group-flush">
+                    {% for p in pets %}
+                        <div class="list-group-item py-3">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div>
+                                    <div class="fw-bold">{{ p.name|e }}</div>
+                                    <div class="muted small">
+                                        {% if p.species %}{{ p.species|e }}{% endif %}
+                                        {% if p.species and p.breed %} • {% endif %}
+                                        {% if p.breed %}{{ p.breed|e }}{% endif %}
+                                        {% if (p.species or p.breed) and p.birth_date_view %} • {% endif %}
+                                        {% if p.birth_date_view %}🎂 {{ p.birth_date_view|e }}{% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <a class="btn btn-outline-primary btn-sm" href="/pets/{{ p.id }}">Открыть</a>
+                                    <a class="btn btn-success btn-edit btn-sm" href="/pets/{{ p.id }}/edit?back=/clients/{{ client.id }}">Редактировать</a>
+                                    <form method="post" action="/pets/{{ p.id }}/delete" onsubmit="return confirm('Удалить питомца и все его визиты?');">
+                                        <button class="btn btn-danger btn-sm" type="submit">Удалить</button>
+                                    </form>
+                                </div>
                             </div>
-                        </td>
-                    </tr>
-                {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">Питомцев пока нет</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
     </div>
 {% endblock %}
