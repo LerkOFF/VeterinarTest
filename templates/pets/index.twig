@@ -8,7 +8,7 @@
 
     <form class="row g-2 mb-3" method="get" action="/pets">
         <div class="col-sm-8 col-md-6">
-            <input class="form-control" name="q" value="{{ q }}" placeholder="Поиск: кличка, вид, порода, ФИО клиента">
+            <input class="form-control" name="q" value="{{ q }}" placeholder="Поиск по кличке / виду / породе / ФИО клиента">
         </div>
         <div class="col-auto">
             <button class="btn btn-outline-secondary" type="submit">Найти</button>
@@ -27,25 +27,41 @@
                 <tr>
                     <th style="width: 70px;">ID</th>
                     <th>Кличка</th>
+                    <th>Клиент</th>
                     <th>Вид</th>
                     <th>Порода</th>
                     <th style="width: 140px;">Рождение</th>
-                    <th>Клиент</th>
+                    <th style="width: 220px;">Действия</th>
                 </tr>
                 </thead>
                 <tbody>
                 {% for p in pets %}
                     <tr>
                         <td>{{ p.id }}</td>
-                        <td><a href="/pets/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a></td>
+                        <td>
+                            <a href="/pets/{{ p.id }}" class="text-decoration-none">{{ p.name }}</a>
+                        </td>
+                        <td>
+                            <a href="/clients/{{ p.client_id }}" class="text-decoration-none">{{ p.client_full_name }}</a>
+                        </td>
                         <td>{{ p.species|default('—') }}</td>
                         <td>{{ p.breed|default('—') }}</td>
-                        <td>{{ p.birth_date_view|default('—') }}</td>
-                        <td><a href="/clients/{{ p.client_id }}" class="text-decoration-none">{{ p.client_full_name }}</a></td>
+                        <td>{{ p.birth_date_view ? p.birth_date_view : '—' }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a class="btn btn-sm btn-success" href="/pets/{{ p.id }}/edit">Редактировать</a>
+
+                                <form method="post"
+                                      action="/pets/{{ p.id }}/delete"
+                                      onsubmit="return confirm('Удалить питомца «{{ p.name }}» и все его визиты?');">
+                                    <button class="btn btn-sm btn-danger" type="submit">Удалить</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">Питомцев пока нет</td>
+                        <td colspan="7" class="text-center text-muted py-4">Питомцев пока нет</td>
                     </tr>
                 {% endfor %}
                 </tbody>

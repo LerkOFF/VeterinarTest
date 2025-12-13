@@ -246,15 +246,12 @@ $app->get('/clients/{id}', function (Request $request, Response $response, array
 });
 
 /**
- * Питомец: добавление для конкретного клиента (GET форма + POST сохранение)
- * Обязательное: только кличка
- * Дата рождения: ввод ДД-ММ-ГГГГ, хранение YYYY-MM-DD
+ * Питомец: добавление для конкретного клиента
  */
 $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $request, Response $response, array $args) use ($twig) {
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
 
-    // клиент должен существовать
     $stmt = $pdo->prepare('SELECT * FROM clients WHERE id = :id');
     $stmt->execute([':id' => $clientId]);
     $client = $stmt->fetch();
@@ -280,18 +277,15 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
         $data['name'] = trim((string)($parsed['name'] ?? ''));
         $data['species'] = trim((string)($parsed['species'] ?? ''));
         $data['breed'] = trim((string)($parsed['breed'] ?? ''));
-        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? '')); // ДД-ММ-ГГГГ
+        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? ''));
         $data['medications'] = trim((string)($parsed['medications'] ?? ''));
         $data['notes'] = trim((string)($parsed['notes'] ?? ''));
 
         if ($data['name'] === '') $errors[] = 'Кличка питомца обязательна.';
 
         $birthIso = null;
-        try {
-            $birthIso = normalizeBirthDateToIso($data['birth_date']);
-        } catch (\InvalidArgumentException $e) {
-            $errors[] = $e->getMessage();
-        }
+        try { $birthIso = normalizeBirthDateToIso($data['birth_date']); }
+        catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
         if (!$errors) {
             $stmt = $pdo->prepare(
@@ -410,6 +404,121 @@ $app->get('/pets/{id}', function (Request $request, Response $response, array $a
 });
 
 /**
+ * Питомец: редактирование
+ */
+$app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Response $response, array $args) use ($twig) {
+    $petId = (int)($args['id'] ?? 0);
+    $pdo = Db::pdo();
+
+    // питомец + клиент
+    $stmt = $pdo->prepare(
+        'SELECT p.*, c.full_name AS client_full_name
+         FROM pets p
+         JOIN clients c ON c.id = p.client_id
+         WHERE p.id = :id'
+    );
+    $stmt->execute([':id' => $petId]);
+    $pet = $stmt->fetch();
+
+    if (!$pet) {
+        $response->getBody()->write('Pet not found');
+        return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    $errors = [];
+    $data = [
+        'name' => (string)($pet['name'] ?? ''),
+        'species' => (string)($pet['species'] ?? ''),
+        'breed' => (string)($pet['breed'] ?? ''),
+        'birth_date' => formatIsoToDdMmYyyy($pet['birth_date'] ?? null), // ДД-ММ-ГГГГ
+        'medications' => (string)($pet['medications'] ?? ''),
+        'notes' => (string)($pet['notes'] ?? ''),
+    ];
+
+    if ($request->getMethod() === 'POST') {
+        $parsed = (array)($request->getParsedBody() ?? []);
+
+        $data['name'] = trim((string)($parsed['name'] ?? ''));
+        $data['species'] = trim((string)($parsed['species'] ?? ''));
+        $data['breed'] = trim((string)($parsed['breed'] ?? ''));
+        $data['birth_date'] = trim((string)($parsed['birth_date'] ?? ''));
+        $data['medications'] = trim((string)($parsed['medications'] ?? ''));
+        $data['notes'] = trim((string)($parsed['notes'] ?? ''));
+
+        if ($data['name'] === '') $errors[] = 'Кличка питомца обязательна.';
+
+        $birthIso = null;
+        try { $birthIso = normalizeBirthDateToIso($data['birth_date']); }
+        catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
+
+        if (!$errors) {
+            $stmt = $pdo->prepare(
+                'UPDATE pets
+                 SET name = :name,
+                     species = :species,
+                     breed = :breed,
+                     birth_date = :birth_date,
+                     medications = :medications,
+                     notes = :notes,
+                     updated_at = datetime(\'now\')
+                 WHERE id = :id'
+            );
+
+            $stmt->execute([
+                ':name' => $data['name'],
+                ':species' => ($data['species'] !== '' ? $data['species'] : null),
+                ':breed' => ($data['breed'] !== '' ? $data['breed'] : null),
+                ':birth_date' => $birthIso,
+                ':medications' => ($data['medications'] !== '' ? $data['medications'] : null),
+                ':notes' => ($data['notes'] !== '' ? $data['notes'] : null),
+                ':id' => $petId,
+            ]);
+
+            return $response->withHeader('Location', '/pets/' . $petId)->withStatus(302);
+        }
+    }
+
+    $html = $twig->render('pets/edit.twig', [
+        'title' => 'Редактировать питомца',
+        'pet' => $pet,
+        'errors' => $errors,
+        'data' => $data,
+    ]);
+
+    $response->getBody()->write($html);
+    return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+});
+
+/**
+ * Питомец: удаление (только POST)
+ * Важно: у pets FK RESTRICT, а у visits FK RESTRICT -> сначала удаляем визиты питомца.
+ */
+$app->post('/pets/{id}/delete', function (Request $request, Response $response, array $args) {
+    $petId = (int)($args['id'] ?? 0);
+    $pdo = Db::pdo();
+
+    // найдём питомца, чтобы понять куда редиректить после удаления
+    $stmt = $pdo->prepare('SELECT id, client_id FROM pets WHERE id = :id');
+    $stmt->execute([':id' => $petId]);
+    $pet = $stmt->fetch();
+
+    if (!$pet) {
+        return $response->withHeader('Location', '/pets')->withStatus(302);
+    }
+
+    // 1) удалить визиты питомца
+    $stmt = $pdo->prepare('DELETE FROM visits WHERE pet_id = :id');
+    $stmt->execute([':id' => $petId]);
+
+    // 2) удалить питомца
+    $stmt = $pdo->prepare('DELETE FROM pets WHERE id = :id');
+    $stmt->execute([':id' => $petId]);
+
+    // после удаления — возвращаемся в карточку клиента
+    return $response->withHeader('Location', '/clients/' . (int)$pet['client_id'])->withStatus(302);
+});
+
+/**
  * Визит: добавление для питомца
  */
 $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $request, Response $response, array $args) use ($twig) {
@@ -498,7 +607,6 @@ $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Requ
     $visitId = (int)($args['visitId'] ?? 0);
     $pdo = Db::pdo();
 
-    // питомец + клиент
     $stmt = $pdo->prepare(
         'SELECT p.*, c.full_name AS client_full_name
          FROM pets p
@@ -513,7 +621,6 @@ $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Requ
         return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
     }
 
-    // визит должен принадлежать этому питомцу
     $stmt = $pdo->prepare('SELECT * FROM visits WHERE id = :vid AND pet_id = :pid');
     $stmt->execute([':vid' => $visitId, ':pid' => $petId]);
     $visit = $stmt->fetch();
@@ -593,7 +700,7 @@ $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Requ
 });
 
 /**
- * Визит: удаление (только POST)
+ * Визит: удаление
  */
 $app->post('/pets/{petId}/visits/{visitId}/delete', function (Request $request, Response $response, array $args) {
     $petId = (int)($args['petId'] ?? 0);

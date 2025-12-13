@@ -1,0 +1,67 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h1 class="h4 mb-1">Редактировать питомца</h1>
+            <div class="text-muted small">
+                Питомец: <a class="text-decoration-none" href="/pets/{{ pet.id }}">{{ pet.name }}</a>
+                · Клиент: <a class="text-decoration-none" href="/clients/{{ pet.client_id }}">{{ pet.client_full_name }}</a>
+            </div>
+        </div>
+        <a class="btn btn-outline-secondary" href="/pets/{{ pet.id }}">Назад</a>
+    </div>
+
+    {% if errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for e in errors %}
+                    <li>{{ e }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded shadow-sm p-4">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Кличка *</label>
+                <input class="form-control" name="name" value="{{ data.name }}">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Вид</label>
+                <input class="form-control" name="species" value="{{ data.species }}">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Порода</label>
+                <input class="form-control" name="breed" value="{{ data.breed }}">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Дата рождения (ДД-ММ-ГГГГ)</label>
+                <input class="form-control" name="birth_date" value="{{ data.birth_date }}" placeholder="например 05-09-2019">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Лекарства (текст)</label>
+                <textarea class="form-control" name="medications" rows="2">{{ data.medications }}</textarea>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Заметки</label>
+                <textarea class="form-control" name="notes" rows="3">{{ data.notes }}</textarea>
+            </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Сохранить</button>
+            <a class="btn btn-outline-secondary" href="/pets/{{ pet.id }}">Отмена</a>
+        </div>
+
+        <div class="form-text mt-2">
+            * обязательна только кличка. Остальные поля можно оставлять пустыми.
+        </div>
+    </form>
+{% endblock %}

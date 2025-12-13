@@ -9,9 +9,21 @@
                 <a href="/clients/{{ pet.client_id }}" class="text-decoration-none">{{ pet.client_full_name }}</a>
             </div>
         </div>
+
         <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary" href="/clients/{{ pet.client_id }}">К клиенту</a>
             <a class="btn btn-outline-secondary" href="/pets">Все питомцы</a>
+
+            {# Редактирование — зелёная кнопка #}
+            <a class="btn btn-success" href="/pets/{{ pet.id }}/edit">Редактировать питомца</a>
+
+            {# Удаление питомца — красная кнопка (POST) #}
+            <form method="post"
+                  action="/pets/{{ pet.id }}/delete"
+                  onsubmit="return confirm('Удалить питомца «{{ pet.name }}» и все его визиты?');">
+                <button class="btn btn-danger" type="submit">Удалить питомца</button>
+            </form>
+
             <a class="btn btn-primary" href="/pets/{{ pet.id }}/visits/create">+ Визит</a>
         </div>
     </div>
@@ -73,7 +85,8 @@
                         <td>{{ v.diagnosis|default('—') }}</td>
                         <td>
                             <div class="d-flex gap-2">
-                                <a class="btn btn-sm btn-outline-secondary"
+                                {# Редактирование визита — зелёная кнопка #}
+                                <a class="btn btn-sm btn-success"
                                    href="/pets/{{ pet.id }}/visits/{{ v.id }}/edit">Редактировать</a>
 
                                 <form method="post"

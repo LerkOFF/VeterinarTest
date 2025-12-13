@@ -9,12 +9,6 @@
                 {% if client.address and client.phone %} · {% endif %}
                 {% if client.phone %}Телефон: {{ client.phone }}{% endif %}
                 {% if not client.address and not client.phone %}Данные клиента{% endif %}
-                {% if client.last_visit_view %}
-                    <span class="ms-2">·</span>
-                    <span class="ms-2">
-            <strong>Последний визит:</strong> {{ client.last_visit_view }}
-          </span>
-                {% endif %}
             </div>
         </div>
         <div class="d-flex gap-2">
@@ -41,6 +35,7 @@
                     <th>Вид</th>
                     <th>Порода</th>
                     <th style="width: 140px;">Рождение</th>
+                    <th style="width: 220px;">Действия</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -52,11 +47,22 @@
                         </td>
                         <td>{{ p.species|default('—') }}</td>
                         <td>{{ p.breed|default('—') }}</td>
-                        <td>{{ p.birth_date_view|default('—') }}</td>
+                        <td>{{ p.birth_date_view ? p.birth_date_view : '—' }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a class="btn btn-sm btn-success" href="/pets/{{ p.id }}/edit">Редактировать</a>
+
+                                <form method="post"
+                                      action="/pets/{{ p.id }}/delete"
+                                      onsubmit="return confirm('Удалить питомца «{{ p.name }}» и все его визиты?');">
+                                    <button class="btn btn-sm btn-danger" type="submit">Удалить</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">Питомцев пока нет</td>
+                        <td colspan="6" class="text-center text-muted py-4">Питомцев пока нет</td>
                     </tr>
                 {% endfor %}
                 </tbody>
