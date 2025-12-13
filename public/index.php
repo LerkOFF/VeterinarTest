@@ -6,6 +6,8 @@ ini_set('display_errors', '1');
 
 use App\Db;
 use App\Schema;
+use App\Helpers\BackHelper;
+use App\Helpers\DateHelper;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
@@ -24,89 +26,6 @@ $twig = new Environment(
     new FilesystemLoader(__DIR__ . '/../templates'),
     ['cache' => false]
 );
-
-function normalizeBirthDateToIso(?string $ddmmyyyy): ?string
-{
-    $s = trim((string)$ddmmyyyy);
-    if ($s === '') return null;
-
-    if (!preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $s, $m)) {
-        throw new \InvalidArgumentException('Дата рождения должна быть в формате ДД-ММ-ГГГГ.');
-    }
-
-    $day = (int)$m[1];
-    $month = (int)$m[2];
-    $year = (int)$m[3];
-
-    if (!checkdate($month, $day, $year)) {
-        throw new \InvalidArgumentException('Дата рождения некорректна.');
-    }
-
-    return sprintf('%04d-%02d-%02d', $year, $month, $day);
-}
-
-function formatIsoToDdMmYyyy(?string $iso): string
-{
-    $s = trim((string)$iso);
-    if ($s === '') return '';
-
-    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
-        return $s;
-    }
-
-    return $m[3] . '-' . $m[2] . '-' . $m[1];
-}
-
-function normalizeVisitDate(?string $ddmmyyyy): ?string
-{
-    $s = trim((string)$ddmmyyyy);
-    if ($s === '') return null;
-
-    if (!preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $s, $m)) {
-        throw new \InvalidArgumentException('Дата визита должна быть в формате ДД-ММ-ГГГГ.');
-    }
-
-    $day = (int)$m[1];
-    $month = (int)$m[2];
-    $year = (int)$m[3];
-
-    if (!checkdate($month, $day, $year)) {
-        throw new \InvalidArgumentException('Дата визита некорректна.');
-    }
-
-    return $s;
-}
-
-function normalizeVisitTime(?string $hhmm): ?string
-{
-    $s = trim((string)$hhmm);
-    if ($s === '') return null;
-
-    if (!preg_match('/^(\d{2}):(\d{2})$/', $s, $m)) {
-        throw new \InvalidArgumentException('Время визита должно быть в формате ЧЧ:ММ.');
-    }
-
-    $h = (int)$m[1];
-    $min = (int)$m[2];
-
-    if ($h < 0 || $h > 23 || $min < 0 || $min > 59) {
-        throw new \InvalidArgumentException('Время визита некорректно.');
-    }
-
-    return $s;
-}
-
-/**
- * Разрешаем back только на внутренние пути "/..."
- */
-function sanitizeBack(?string $back): ?string
-{
-    $b = trim((string)$back);
-    if ($b === '') return null;
-    if (!str_starts_with($b, '/')) return null;
-    if (str_starts_with($b, '//')) return null;
-    return $b;
-}
 
 $app->get('/', function (Request $request, Response $response) use ($twig) {
     $html = $twig->render('home.twig', ['title' => 'ВетКлиника — локальная система']);
@@ -191,7 +110,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/edit', function (Request $request, Res
     $pdo = Db::pdo();
 
     $query = $request->getQueryParams();
-    $back = sanitizeBack($query['back'] ?? null);
+    $back = BackHelper::sanitizeBack($query['back'] ?? null);
     $defaultBack = '/clients/' . $clientId;
     $backUrl = $back ?? $defaultBack;
 
@@ -263,7 +182,6 @@ $app->post('/clients/{id}/delete', function (Request $request, Response $respons
     $clientId = (int)($args['id'] ?? 0);
     $pdo = Db::pdo();
 
-    // проверим, что клиент существует
     $stmt = $pdo->prepare('SELECT id FROM clients WHERE id = :id');
     $stmt->execute([':id' => $clientId]);
     $client = $stmt->fetch();
@@ -272,26 +190,22 @@ $app->post('/clients/{id}/delete', function (Request $request, Response $respons
         return $response->withHeader('Location', '/clients')->withStatus(302);
     }
 
-    // транзакция, чтобы удаление было атомарным
     $pdo->beginTransaction();
     try {
-        // 1) найти питомцев клиента
         $stmt = $pdo->prepare('SELECT id FROM pets WHERE client_id = :cid');
         $stmt->execute([':cid' => $clientId]);
         $petIds = array_map(static fn($r) => (int)$r['id'], $stmt->fetchAll());
 
-        // 2) удалить визиты всех питомцев
         if (!empty($petIds)) {
             $placeholders = implode(',', array_fill(0, count($petIds), '?'));
+
             $stmt = $pdo->prepare("DELETE FROM visits WHERE pet_id IN ($placeholders)");
             $stmt->execute($petIds);
 
-            // 3) удалить питомцев
             $stmt = $pdo->prepare("DELETE FROM pets WHERE id IN ($placeholders)");
             $stmt->execute($petIds);
         }
 
-        // 4) удалить клиента
         $stmt = $pdo->prepare('DELETE FROM clients WHERE id = :id');
         $stmt->execute([':id' => $clientId]);
 
@@ -326,7 +240,7 @@ $app->get('/clients/{id}', function (Request $request, Response $response, array
 
     $pets = [];
     foreach ($petsRaw as $p) {
-        $p['birth_date_view'] = formatIsoToDdMmYyyy($p['birth_date'] ?? null);
+        $p['birth_date_view'] = DateHelper::formatIsoToDdMmYyyy($p['birth_date'] ?? null);
         $pets[] = $p;
     }
 
@@ -379,7 +293,7 @@ $app->map(['GET', 'POST'], '/clients/{id}/pets/create', function (Request $reque
         if ($data['name'] === '') $errors[] = 'Кличка питомца обязательна.';
 
         $birthIso = null;
-        try { $birthIso = normalizeBirthDateToIso($data['birth_date']); }
+        try { $birthIso = DateHelper::normalizeBirthDateToIso($data['birth_date']); }
         catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
         if (!$errors) {
@@ -442,7 +356,7 @@ $app->get('/pets', function (Request $request, Response $response) use ($twig) {
 
     $pets = [];
     foreach ($petsRaw as $p) {
-        $p['birth_date_view'] = formatIsoToDdMmYyyy($p['birth_date'] ?? null);
+        $p['birth_date_view'] = DateHelper::formatIsoToDdMmYyyy($p['birth_date'] ?? null);
         $pets[] = $p;
     }
 
@@ -477,7 +391,7 @@ $app->get('/pets/{id}', function (Request $request, Response $response, array $a
         return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
     }
 
-    $pet['birth_date_view'] = formatIsoToDdMmYyyy($pet['birth_date'] ?? null);
+    $pet['birth_date_view'] = DateHelper::formatIsoToDdMmYyyy($pet['birth_date'] ?? null);
 
     $stmt = $pdo->prepare('SELECT * FROM visits WHERE pet_id = :id ORDER BY id DESC');
     $stmt->execute([':id' => $id]);
@@ -501,7 +415,7 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
     $pdo = Db::pdo();
 
     $query = $request->getQueryParams();
-    $back = sanitizeBack($query['back'] ?? null);
+    $back = BackHelper::sanitizeBack($query['back'] ?? null);
     $defaultBack = '/pets/' . $petId;
     $backUrl = $back ?? $defaultBack;
 
@@ -524,7 +438,7 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
         'name' => (string)($pet['name'] ?? ''),
         'species' => (string)($pet['species'] ?? ''),
         'breed' => (string)($pet['breed'] ?? ''),
-        'birth_date' => formatIsoToDdMmYyyy($pet['birth_date'] ?? null),
+        'birth_date' => DateHelper::formatIsoToDdMmYyyy($pet['birth_date'] ?? null),
         'medications' => (string)($pet['medications'] ?? ''),
         'notes' => (string)($pet['notes'] ?? ''),
     ];
@@ -542,7 +456,7 @@ $app->map(['GET', 'POST'], '/pets/{id}/edit', function (Request $request, Respon
         if ($data['name'] === '') $errors[] = 'Кличка питомца обязательна.';
 
         $birthIso = null;
-        try { $birthIso = normalizeBirthDateToIso($data['birth_date']); }
+        try { $birthIso = DateHelper::normalizeBirthDateToIso($data['birth_date']); }
         catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
         if (!$errors) {
@@ -652,10 +566,10 @@ $app->map(['GET', 'POST'], '/pets/{id}/visits/create', function (Request $reques
         $visitDate = null;
         $visitTime = null;
 
-        try { $visitDate = normalizeVisitDate($data['visit_date']); }
+        try { $visitDate = DateHelper::normalizeVisitDate($data['visit_date']); }
         catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
-        try { $visitTime = normalizeVisitTime($data['visit_time']); }
+        try { $visitTime = DateHelper::normalizeVisitTime($data['visit_time']); }
         catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
         if (!$errors) {
@@ -743,10 +657,10 @@ $app->map(['GET', 'POST'], '/pets/{petId}/visits/{visitId}/edit', function (Requ
         $visitDate = null;
         $visitTime = null;
 
-        try { $visitDate = normalizeVisitDate($data['visit_date']); }
+        try { $visitDate = DateHelper::normalizeVisitDate($data['visit_date']); }
         catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
-        try { $visitTime = normalizeVisitTime($data['visit_time']); }
+        try { $visitTime = DateHelper::normalizeVisitTime($data['visit_time']); }
         catch (\InvalidArgumentException $e) { $errors[] = $e->getMessage(); }
 
         if (!$errors) {
