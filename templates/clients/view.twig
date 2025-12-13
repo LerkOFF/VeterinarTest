@@ -6,7 +6,8 @@
         <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary" href="/clients">Назад</a>
             <a class="btn btn-success btn-edit" href="/clients/{{ client.id }}/edit?back=/clients/{{ client.id }}">Редактировать</a>
-            <form method="post" action="/clients/{{ client.id }}/delete" onsubmit="return confirm('Удалить клиента и всех его питомцев/визиты?');">
+            <form method="post" action="/clients/{{ client.id }}/delete"
+                  onsubmit="return confirm('Удалить клиента и всех его питомцев/визиты?');">
                 <button class="btn btn-danger" type="submit">Удалить</button>
             </form>
         </div>
@@ -36,7 +37,7 @@
         </div>
     </div>
 
-    {# -------------------- БЫСТРЫЙ ВИЗИТ -------------------- #}
+    {# ================= БЫСТРЫЙ ВИЗИТ ================= #}
     <div id="quick-visit" class="card app-card app-shadow mb-3">
         <div class="card-body p-4">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -45,13 +46,14 @@
                     <div class="muted small">Без перехода в карточку питомца</div>
                 </div>
 
-                <button class="btn btn-outline-primary"
+                <button id="quickVisitToggle"
+                        class="btn btn-outline-primary"
                         type="button"
                         data-bs-toggle="collapse"
                         data-bs-target="#quickVisitForm"
                         aria-expanded="{{ quick_open ? 'true' : 'false' }}"
                         aria-controls="quickVisitForm">
-                    {{ quick_open ? 'Скрыть' : 'Открыть форму' }}
+                    {{ quick_open ? 'Скрыть форму' : 'Открыть форму' }}
                 </button>
             </div>
 
@@ -74,16 +76,18 @@
                         У клиента нет питомцев. Сначала добавьте питомца.
                     </div>
                 {% else %}
-                    <form method="post" action="/clients/{{ client.id }}/visits/quick#quick-visit" class="row g-3">
+                    <form method="post"
+                          action="/clients/{{ client.id }}/visits/quick#quick-visit"
+                          class="row g-3">
+
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Питомец *</label>
                             <select class="form-select" name="pet_id" required>
                                 <option value="">— Выберите —</option>
                                 {% set selectedPet = quick.pet_id|default('') %}
                                 {% for p in pets %}
-                                    {% set pid = p.id|default('') %}
-                                    <option value="{{ pid }}"
-                                            {% if selectedPet == pid %}selected{% endif %}>
+                                    <option value="{{ p.id }}"
+                                            {% if selectedPet == p.id %}selected{% endif %}>
                                         {{ p.name|e }}
                                         {% if p.species %} ({{ p.species|e }}{% if p.breed %}, {{ p.breed|e }}{% endif %}){% endif %}
                                     </option>
@@ -92,45 +96,62 @@
                         </div>
 
                         <div class="col-12 col-md-3">
-                            <label class="form-label fw-semibold">Дата (ДД-ММ-ГГГГ) *</label>
-                            <input class="form-control" name="visit_date" value="{{ quick.visit_date|default('')|e }}" placeholder="13-12-2025" required>
+                            <label class="form-label fw-semibold">Дата *</label>
+                            <input class="form-control"
+                                   name="visit_date"
+                                   value="{{ quick.visit_date|default('')|e }}"
+                                   placeholder="13-12-2025"
+                                   required>
                         </div>
 
                         <div class="col-12 col-md-3">
-                            <label class="form-label fw-semibold">Время (ЧЧ:ММ) *</label>
-                            <input class="form-control" name="visit_time" value="{{ quick.visit_time|default('')|e }}" placeholder="17:30" required>
+                            <label class="form-label fw-semibold">Время *</label>
+                            <input class="form-control"
+                                   name="visit_time"
+                                   value="{{ quick.visit_time|default('')|e }}"
+                                   placeholder="17:30"
+                                   required>
                         </div>
 
                         <div class="col-12">
                             <label class="form-label fw-semibold">Жалоба</label>
-                            <textarea class="form-control" name="complaint" rows="2">{{ quick.complaint|default('')|e }}</textarea>
+                            <textarea class="form-control"
+                                      name="complaint"
+                                      rows="2">{{ quick.complaint|default('')|e }}</textarea>
                         </div>
 
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Диагноз</label>
-                            <textarea class="form-control" name="diagnosis" rows="2">{{ quick.diagnosis|default('')|e }}</textarea>
+                            <textarea class="form-control"
+                                      name="diagnosis"
+                                      rows="2">{{ quick.diagnosis|default('')|e }}</textarea>
                         </div>
 
                         <div class="col-12 col-md-6">
                             <label class="form-label fw-semibold">Процедуры</label>
-                            <textarea class="form-control" name="procedures" rows="2">{{ quick.procedures|default('')|e }}</textarea>
+                            <textarea class="form-control"
+                                      name="procedures"
+                                      rows="2">{{ quick.procedures|default('')|e }}</textarea>
                         </div>
 
                         <div class="col-12">
                             <label class="form-label fw-semibold">Рекомендации</label>
-                            <textarea class="form-control" name="recommendations" rows="2">{{ quick.recommendations|default('')|e }}</textarea>
+                            <textarea class="form-control"
+                                      name="recommendations"
+                                      rows="2">{{ quick.recommendations|default('')|e }}</textarea>
                         </div>
 
                         <div class="col-12 d-flex gap-2">
                             <button class="btn btn-success btn-edit" type="submit">Сохранить визит</button>
-                            <a class="btn btn-outline-secondary" href="/clients/{{ client.id }}#quick-visit">Сбросить</a>
+                            <a class="btn btn-outline-secondary"
+                               href="/clients/{{ client.id }}#quick-visit">Сбросить</a>
                         </div>
                     </form>
                 {% endif %}
             </div>
         </div>
     </div>
-    {# -------------------- /БЫСТРЫЙ ВИЗИТ -------------------- #}
+    {# ================= /БЫСТРЫЙ ВИЗИТ ================= #}
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
         <h2 class="h5 fw-bold m-0">Питомцы</h2>
@@ -159,8 +180,10 @@
 
                                 <div class="d-flex gap-2">
                                     <a class="btn btn-outline-primary btn-sm" href="/pets/{{ p.id }}">Открыть</a>
-                                    <a class="btn btn-success btn-edit btn-sm" href="/pets/{{ p.id }}/edit?back=/clients/{{ client.id }}">Редактировать</a>
-                                    <form method="post" action="/pets/{{ p.id }}/delete" onsubmit="return confirm('Удалить питомца и все его визиты?');">
+                                    <a class="btn btn-success btn-edit btn-sm"
+                                       href="/pets/{{ p.id }}/edit?back=/clients/{{ client.id }}">Редактировать</a>
+                                    <form method="post" action="/pets/{{ p.id }}/delete"
+                                          onsubmit="return confirm('Удалить питомца и все его визиты?');">
                                         <button class="btn btn-danger btn-sm" type="submit">Удалить</button>
                                     </form>
                                 </div>
@@ -171,4 +194,22 @@
             {% endif %}
         </div>
     </div>
+
+    {# ===== JS: синхронизация текста кнопки ===== #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('quickVisitForm');
+            const btn  = document.getElementById('quickVisitToggle');
+            if (!form || !btn) return;
+
+            form.addEventListener('shown.bs.collapse', () => {
+                btn.textContent = 'Скрыть форму';
+            });
+
+            form.addEventListener('hidden.bs.collapse', () => {
+                btn.textContent = 'Открыть форму';
+            });
+        });
+    </script>
+
 {% endblock %}
