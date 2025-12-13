@@ -1,0 +1,42 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h4 mb-0">Добавить клиента</h1>
+        <a class="btn btn-outline-secondary" href="/clients">Назад</a>
+    </div>
+
+    {% if errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for e in errors %}
+                    <li>{{ e }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded shadow-sm p-4">
+        <div class="mb-3">
+            <label class="form-label">ФИО</label>
+            <input class="form-control" name="full_name" value="{{ data.full_name }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Адрес</label>
+            <input class="form-control" name="address" value="{{ data.address }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Телефон (необязательно)</label>
+            <input class="form-control" name="phone" value="{{ data.phone }}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Заметки</label>
+            <textarea class="form-control" name="notes" rows="3">{{ data.notes }}</textarea>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Сохранить</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h4 mb-0">Клиенты</h1>
+        <a class="btn btn-primary" href="/clients/create">+ Добавить</a>
+    </div>
+
+    <form class="row g-2 mb-3" method="get" action="/clients">
+        <div class="col-sm-8 col-md-6">
+            <input class="form-control" name="q" value="{{ q }}" placeholder="Поиск по ФИО или телефону">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-outline-secondary" type="submit">Найти</button>
+        </div>
+        {% if q %}
+            <div class="col-auto">
+                <a class="btn btn-link" href="/clients">Сбросить</a>
+            </div>
+        {% endif %}
+    </form>
+
+    <div class="bg-white rounded shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th style="width: 70px;">ID</th>
+                    <th>ФИО</th>
+                    <th>Адрес</th>
+                    <th style="width: 180px;">Телефон</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for c in clients %}
+                    <tr>
+                        <td>{{ c.id }}</td>
+                        <td>{{ c.full_name }}</td>
+                        <td>{{ c.address }}</td>
+                        <td>{{ c.phone|default('—') }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">Клиентов пока нет</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

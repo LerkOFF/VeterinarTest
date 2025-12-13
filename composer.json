@@ -1,0 +1,16 @@
+{
+  "name": "local/vetclinic",
+  "description": "Local veterinary clinic app (Slim + Twig + SQLite)",
+  "type": "project",
+  "require": {
+    "php": ">=8.2",
+    "slim/slim": "^4.14",
+    "slim/psr7": "^1.6",
+    "twig/twig": "^3.10"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}
