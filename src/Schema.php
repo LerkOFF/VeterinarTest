@@ -41,5 +41,27 @@ final class Schema
 
         // Индекс для быстрых выборок питомцев по клиенту
         $pdo->exec('CREATE INDEX IF NOT EXISTS idx_pets_client_id ON pets(client_id)');
+
+        // Visits (посещаемость): все поля необязательные, кроме pet_id.
+        // visit_date — дата визита (ДД-ММ-ГГГГ, сохраняем как TEXT)
+        // visit_time — время визита (ЧЧ:ММ, сохраняем как TEXT)
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS visits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pet_id INTEGER NOT NULL,
+                visit_date TEXT NULL,
+                visit_time TEXT NULL,
+                complaint TEXT NULL,
+                diagnosis TEXT NULL,
+                procedures TEXT NULL,
+                recommendations TEXT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime(\'now\')),
+                updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')),
+                FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE RESTRICT
+            )'
+        );
+
+        // Индекс для быстрых выборок визитов по питомцу
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_visits_pet_id ON visits(pet_id)');
     }
 }

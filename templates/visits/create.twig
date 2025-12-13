@@ -1,0 +1,62 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h1 class="h4 mb-1">Добавить визит</h1>
+            <div class="text-muted small">
+                Питомец: <a class="text-decoration-none" href="/pets/{{ pet.id }}">{{ pet.name }}</a>
+                · Клиент: <a class="text-decoration-none" href="/clients/{{ pet.client_id }}">{{ pet.client_full_name }}</a>
+            </div>
+        </div>
+        <a class="btn btn-outline-secondary" href="/pets/{{ pet.id }}">Назад</a>
+    </div>
+
+    {% if errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for e in errors %}
+                    <li>{{ e }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="post" class="bg-white rounded shadow-sm p-4">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Дата визита (ДД-ММ-ГГГГ)</label>
+                <input class="form-control" name="visit_date" value="{{ data.visit_date }}" placeholder="например 13-12-2025">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Время (ЧЧ:ММ)</label>
+                <input class="form-control" name="visit_time" value="{{ data.visit_time }}" placeholder="например 14:30">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Жалоба / причина</label>
+                <textarea class="form-control" name="complaint" rows="2">{{ data.complaint }}</textarea>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Диагноз</label>
+                <textarea class="form-control" name="diagnosis" rows="2">{{ data.diagnosis }}</textarea>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Процедуры</label>
+                <textarea class="form-control" name="procedures" rows="2">{{ data.procedures }}</textarea>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Рекомендации</label>
+                <textarea class="form-control" name="recommendations" rows="2">{{ data.recommendations }}</textarea>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <button class="btn btn-primary" type="submit">Сохранить визит</button>
+        </div>
+    </form>
+{% endblock %}

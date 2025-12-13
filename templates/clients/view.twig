@@ -9,6 +9,12 @@
                 {% if client.address and client.phone %} · {% endif %}
                 {% if client.phone %}Телефон: {{ client.phone }}{% endif %}
                 {% if not client.address and not client.phone %}Данные клиента{% endif %}
+                {% if client.last_visit_view %}
+                    <span class="ms-2">·</span>
+                    <span class="ms-2">
+            <strong>Последний визит:</strong> {{ client.last_visit_view }}
+          </span>
+                {% endif %}
             </div>
         </div>
         <div class="d-flex gap-2">

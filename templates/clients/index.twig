@@ -29,6 +29,7 @@
                     <th>ФИО</th>
                     <th>Адрес</th>
                     <th style="width: 180px;">Телефон</th>
+                    <th style="width: 150px;">Последний визит</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -40,12 +41,13 @@
                                 {{ c.full_name }}
                             </a>
                         </td>
-                        <td>{{ c.address }}</td>
+                        <td>{{ c.address|default('—') }}</td>
                         <td>{{ c.phone|default('—') }}</td>
+                        <td>{{ c.last_visit_view ? c.last_visit_view : '—' }}</td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="4" class="text-center text-muted py-4">Клиентов пока нет</td>
+                        <td colspan="5" class="text-center text-muted py-4">Клиентов пока нет</td>
                     </tr>
                 {% endfor %}
                 </tbody>

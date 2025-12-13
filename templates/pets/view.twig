@@ -12,10 +12,11 @@
         <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary" href="/clients/{{ pet.client_id }}">К клиенту</a>
             <a class="btn btn-outline-secondary" href="/pets">Все питомцы</a>
+            <a class="btn btn-primary" href="/pets/{{ pet.id }}/visits/create">+ Визит</a>
         </div>
     </div>
 
-    <div class="bg-white rounded shadow-sm p-4">
+    <div class="bg-white rounded shadow-sm p-4 mb-3">
         <div class="row g-3">
             <div class="col-md-6">
                 <div class="fw-semibold">Вид</div>
@@ -44,7 +45,47 @@
         </div>
     </div>
 
-    <div class="alert alert-secondary mt-3 mb-0">
-        Следующий шаг: добавим “Визиты (посещаемость)” для питомца и форму добавления визита.
+    <div class="bg-white rounded shadow-sm p-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h2 class="h6 mb-0">Визиты (посещаемость)</h2>
+            <a class="btn btn-sm btn-outline-primary" href="/pets/{{ pet.id }}/visits/create">Добавить визит</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th style="width: 70px;">ID</th>
+                    <th style="width: 140px;">Дата</th>
+                    <th style="width: 100px;">Время</th>
+                    <th>Жалоба</th>
+                    <th>Диагноз</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for v in visits %}
+                    <tr>
+                        <td>{{ v.id }}</td>
+                        <td>{{ v.visit_date|default('—') }}</td>
+                        <td>{{ v.visit_time|default('—') }}</td>
+                        <td>{{ v.complaint|default('—') }}</td>
+                        <td>{{ v.diagnosis|default('—') }}</td>
+                    </tr>
+                    {% if v.procedures or v.recommendations %}
+                        <tr>
+                            <td colspan="5" class="small text-muted">
+                                {% if v.procedures %}<div><strong>Процедуры:</strong> {{ v.procedures }}</div>{% endif %}
+                                {% if v.recommendations %}<div><strong>Рекомендации:</strong> {{ v.recommendations }}</div>{% endif %}
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">Визитов пока нет</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 {% endblock %}
