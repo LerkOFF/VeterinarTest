@@ -39,6 +39,7 @@ $loadRoutes(__DIR__ . '/../src/Routes/home.php');
 $loadRoutes(__DIR__ . '/../src/Routes/clients.php');
 $loadRoutes(__DIR__ . '/../src/Routes/pets.php');
 $loadRoutes(__DIR__ . '/../src/Routes/visits.php');
+$loadRoutes(__DIR__ . '/../src/Routes/journal.php');
 
 $app->addRoutingMiddleware();
 $app->addErrorMiddleware(true, true, true);

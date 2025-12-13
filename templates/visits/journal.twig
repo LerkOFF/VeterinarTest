@@ -1,0 +1,116 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h4 fw-bold m-0">Журнал визитов</h1>
+            <div class="muted small">Расписание по датам: кто и когда придёт</div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="/clients">К клиентам</a>
+            <a class="btn btn-outline-secondary" href="/pets">К питомцам</a>
+        </div>
+    </div>
+
+    <div class="card app-card app-shadow mb-3">
+        <div class="card-body p-3">
+            <form method="get" action="/visits/journal" class="row g-2 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold mb-1">С</label>
+                    <input class="form-control" type="date" name="from" value="{{ from|e }}">
+                </div>
+
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold mb-1">По</label>
+                    <input class="form-control" type="date" name="to" value="{{ to|e }}">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label fw-semibold mb-1">Поиск</label>
+                    <input class="form-control" type="text" name="q" value="{{ q|e }}"
+                           placeholder="ФИО, телефон, кличка, вид, жалоба...">
+                </div>
+
+                <div class="col-12 col-md-2 d-flex gap-2">
+                    <button class="btn btn-primary w-100" type="submit">Показать</button>
+                    <a class="btn btn-outline-secondary w-100" href="/visits/journal">Сброс</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card app-card app-shadow">
+        <div class="card-body p-0">
+            {% if days is empty %}
+                <div class="p-4 muted">В выбранном диапазоне визитов нет.</div>
+            {% else %}
+                {% for day in days %}
+                    <div class="p-3 border-bottom bg-white">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="fw-bold">
+                                {{ day.date_view|e }}
+                                {% if day.date_iso == today %}
+                                    <span class="badge text-bg-success ms-2">Сегодня</span>
+                                {% endif %}
+                            </div>
+                            <div class="muted small">Записей: {{ day.items|length }}</div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0 align-middle">
+                            <thead>
+                            <tr>
+                                <th style="width: 90px;">Время</th>
+                                <th>Клиент</th>
+                                <th>Питомец</th>
+                                <th>Жалоба</th>
+                                <th style="width: 220px;">Действия</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for v in day.items %}
+                                <tr>
+                                    <td class="fw-semibold">{{ v.visit_time ? v.visit_time|e : '—' }}</td>
+
+                                    <td>
+                                        <div class="fw-semibold">
+                                            <a href="/clients/{{ v.client_id }}">{{ v.client_full_name|e }}</a>
+                                        </div>
+                                        <div class="muted small">
+                                            {% if v.client_phone %}📞 {{ v.client_phone|e }}{% else %}—{% endif %}
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <div class="fw-semibold">
+                                            <a href="/pets/{{ v.pet_id }}">{{ v.pet_name|e }}</a>
+                                        </div>
+                                        <div class="muted small">
+                                            {{ v.pet_extra ? v.pet_extra|e : '—' }}
+                                        </div>
+                                    </td>
+
+                                    <td>{{ v.complaint ? v.complaint|e : '—' }}</td>
+
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <a class="btn btn-outline-primary btn-sm" href="/pets/{{ v.pet_id }}">Питомец</a>
+                                            <a class="btn btn-outline-primary btn-sm" href="/clients/{{ v.client_id }}">Клиент</a>
+                                            <a class="btn btn-success btn-edit btn-sm"
+                                               href="/pets/{{ v.pet_id }}/visits/{{ v.id }}/edit">
+                                                Визит
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
