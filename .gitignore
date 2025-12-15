@@ -3,6 +3,7 @@
 # =========================
 /vendor/
 composer.lock
+composer.phar
 
 # =========================
 # SQLite database
@@ -13,32 +14,75 @@ composer.lock
 /var/*.sqlite-wal
 
 # =========================
-# Logs / cache
+# Runtime data that shouldn't be versioned
 # =========================
-/var/cache/
-/var/logs/
+/runtime/
+*.log
+*.cache
 
 # =========================
-# OS files
+# OS / System files
 # =========================
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Icon?
+desktop.ini
 
 # =========================
-# IDE (PhpStorm)
+# IDE (PhpStorm / VSCode / others)
 # =========================
-.idea/
-*.iml
+/.idea/
+/*.iml
+.vscode/
+*.code-workspace
 
 # =========================
-# Temporary / backups
+# Temporary / backup / swap
 # =========================
 *.bak
 *.tmp
 *.swp
 *.swo
+*~
 
 # =========================
-# Server related
+# PHPUnit / Testing
 # =========================
 .phpunit.result.cache
+coverage/
+test-reports/
+
+# =========================
+# Build / package / deployments
+# =========================
+*.zip
+*.tar.gz
+*.phar
+dist/
+
+# =========================
+# Environment / config overrides
+# =========================
+.env
+.env.local
+.env.*.local
+
+# =========================
+# Logs / debug output
+# =========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# OS X
+# =========================
+.DS_Store
+
+# =========================
+# Windows
+# =========================
+Thumbs.db
+ehthumbs.db
