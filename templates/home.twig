@@ -1,84 +1,80 @@
 {% extends "layout.twig" %}
 
 {% block content %}
-    <div class="row g-3">
-        <div class="col-12">
-            <div class="card app-card app-shadow">
-                <div class="card-body p-4 p-md-5">
-                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-                        <div>
-                            <h1 class="h3 fw-bold mb-2">Домашний Любимчик</h1>
-                            <div class="muted">
-                                Локальная система ветеринарной клиники
+    <div class="card app-card app-shadow">
+        <div class="card-body p-4 p-md-5">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge text-bg-light border">
+                        <span class="me-1">🐾</span>
+                        Домашний Любимчик
+                    </span>
+                    </div>
+                    <h1 class="h3 fw-bold mb-2">Панель клиники</h1>
+                    <div class="muted">
+                        Быстрый доступ к клиентам, питомцам и расписанию приёмов
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <div class="badge text-bg-success fs-6">By Lerk</div>
+                    <div class="muted small mt-2">Быстро • надёжно • сделано с любовью</div>
+                </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <a href="/clients" class="text-decoration-none">
+                        <div class="card app-card app-shadow h-100">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge text-bg-light border">👤</span>
+                                    <div class="fw-bold fs-5">Клиенты</div>
+                                </div>
+                                <div class="muted small mb-3">Владельцы, контакты, карточки</div>
+                                <div class="btn btn-primary w-100">Открыть</div>
                             </div>
                         </div>
+                    </a>
+                </div>
 
-                        <div class="text-end">
-                            <div class="badge text-bg-success fs-6">By Lerk</div>
-                            <div class="muted small mt-2">
-                                Быстро • надёжно • сделано с любовью
+                <div class="col-12 col-md-4">
+                    <a href="/pets" class="text-decoration-none">
+                        <div class="card app-card app-shadow h-100">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge text-bg-light border">🐶</span>
+                                    <div class="fw-bold fs-5">Питомцы</div>
+                                </div>
+                                <div class="muted small mb-3">Порода, лекарства, история визитов</div>
+                                <div class="btn btn-primary w-100">Открыть</div>
                             </div>
                         </div>
-                    </div>
+                    </a>
+                </div>
 
-                    <hr class="my-4">
-
-                    <div class="row g-3">
-                        <div class="col-12 col-md-4">
-                            <a href="/clients" class="text-decoration-none">
-                                <div class="card app-card app-shadow h-100">
-                                    <div class="card-body p-4">
-                                        <div class="fw-bold fs-5 mb-1">Клиенты</div>
-                                        <div class="muted small mb-3">
-                                            Владельцы и контактные данные
-                                        </div>
-                                        <div class="btn btn-outline-primary w-100">
-                                            Открыть
-                                        </div>
-                                    </div>
+                <div class="col-12 col-md-4">
+                    <a href="/visits/journal" class="text-decoration-none">
+                        <div class="card app-card app-shadow h-100">
+                            <div class="card-body p-4">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge text-bg-light border">📅</span>
+                                    <div class="fw-bold fs-5">Журнал визитов</div>
                                 </div>
-                            </a>
+                                <div class="muted small mb-3">Кто и когда придёт • расписание</div>
+                                <div class="btn btn-primary w-100">Открыть</div>
+                            </div>
                         </div>
+                    </a>
+                </div>
+            </div>
 
-                        <div class="col-12 col-md-4">
-                            <a href="/pets" class="text-decoration-none">
-                                <div class="card app-card app-shadow h-100">
-                                    <div class="card-body p-4">
-                                        <div class="fw-bold fs-5 mb-1">Питомцы</div>
-                                        <div class="muted small mb-3">
-                                            История, лекарства, визиты
-                                        </div>
-                                        <div class="btn btn-outline-primary w-100">
-                                            Открыть
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-
-                        <div class="col-12 col-md-4">
-                            <a href="/visits/journal" class="text-decoration-none">
-                                <div class="card app-card app-shadow h-100">
-                                    <div class="card-body p-4">
-                                        <div class="fw-bold fs-5 mb-1">Журнал визитов</div>
-                                        <div class="muted small mb-3">
-                                            Расписание приёмов
-                                        </div>
-                                        <div class="btn btn-outline-primary w-100">
-                                            Открыть
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="mt-4">
-                        <div class="muted small">
-                            Для записи на приём откройте карточку клиента
-                            и используйте «Быстро добавить визит».
-                        </div>
-                    </div>
+            <div class="mt-4">
+                <div class="muted small">
+                    Подсказка: запись на приём — в карточке клиента через «Быстро добавить визит».
                 </div>
             </div>
         </div>

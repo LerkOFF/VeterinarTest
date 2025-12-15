@@ -11,19 +11,34 @@ use Twig\Environment;
 
 return static function (App $app, Environment $twig): void {
 
+    $containsCi = static function (?string $haystack, string $needle): bool {
+        $haystack = (string)($haystack ?? '');
+        if ($needle === '') return true;
+
+        if (function_exists('mb_stripos')) {
+            return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
+        }
+
+        return stripos($haystack, $needle) !== false;
+    };
+
     /**
-     * Клиенты: список + поиск
+     * Клиенты: список + поиск (поиск делаем в PHP, чтобы работало и для русских букв)
      */
-    $app->get('/clients', function (Request $request, Response $response) use ($twig) {
+    $app->get('/clients', function (Request $request, Response $response) use ($twig, $containsCi) {
         $q = trim((string)($request->getQueryParams()['q'] ?? ''));
 
         $pdo = Db::pdo();
+        $clients = $pdo->query('SELECT * FROM clients ORDER BY id DESC')->fetchAll();
+
         if ($q !== '') {
-            $stmt = $pdo->prepare('SELECT * FROM clients WHERE full_name LIKE :q OR phone LIKE :q ORDER BY id DESC');
-            $stmt->execute([':q' => "%$q%"]);
-            $clients = $stmt->fetchAll();
-        } else {
-            $clients = $pdo->query('SELECT * FROM clients ORDER BY id DESC')->fetchAll();
+            $clients = array_values(array_filter($clients, static function (array $c) use ($q, $containsCi): bool {
+                return
+                    $containsCi($c['full_name'] ?? '', $q) ||
+                    $containsCi($c['phone'] ?? '', $q) ||
+                    $containsCi($c['address'] ?? '', $q) ||
+                    $containsCi($c['notes'] ?? '', $q);
+            }));
         }
 
         $html = $twig->render('clients/index.twig', [
@@ -241,7 +256,6 @@ return static function (App $app, Environment $twig): void {
             'client' => $client,
             'pets' => $pets,
 
-            // быстрый визит
             'quick_open' => $quickOpen,
             'quick_saved' => $quickSaved,
             'quick_errors' => [],
@@ -341,7 +355,6 @@ return static function (App $app, Environment $twig): void {
             return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
         }
 
-        // питомцы клиента (нужно для select + проверки pet_id)
         $stmt = $pdo->prepare('SELECT * FROM pets WHERE client_id = :id ORDER BY id DESC');
         $stmt->execute([':id' => $clientId]);
         $petsRaw = $stmt->fetchAll();

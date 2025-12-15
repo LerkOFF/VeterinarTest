@@ -10,17 +10,27 @@ use Twig\Environment;
 
 return static function (App $app, Environment $twig): void {
 
+    $containsCi = static function (?string $haystack, string $needle): bool {
+        $haystack = (string)($haystack ?? '');
+        if ($needle === '') return true;
+
+        if (function_exists('mb_stripos')) {
+            return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
+        }
+
+        return stripos($haystack, $needle) !== false;
+    };
+
     /**
-     * Журнал визитов (расписание)
+     * Журнал визитов
      * /visits/journal?from=YYYY-MM-DD&to=YYYY-MM-DD&q=...
      */
-    $app->get('/visits/journal', function (Request $request, Response $response) use ($twig) {
+    $app->get('/visits/journal', function (Request $request, Response $response) use ($twig, $containsCi) {
         $pdo = Db::pdo();
 
         $qp = $request->getQueryParams();
         $q = trim((string)($qp['q'] ?? ''));
 
-        // Диапазон дат по умолчанию: сегодня .. +14 дней
         $today = new DateTimeImmutable('today');
         $defaultFrom = $today->format('Y-m-d');
         $defaultTo = $today->modify('+14 days')->format('Y-m-d');
@@ -28,22 +38,10 @@ return static function (App $app, Environment $twig): void {
         $from = trim((string)($qp['from'] ?? ''));
         $to = trim((string)($qp['to'] ?? ''));
 
-        // Принимаем только YYYY-MM-DD, иначе ставим дефолт
         $fromIso = preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) ? $from : $defaultFrom;
         $toIso = preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) ? $to : $defaultTo;
 
-        $params = [
-            ':from' => $fromIso,
-            ':to' => $toIso,
-        ];
-
-        /**
-         * ВАЖНО:
-         * В БД у тебя могли остаться старые записи visit_date в формате ДД-ММ-ГГГГ.
-         * Поэтому делаем вычисляемое поле visit_date_iso:
-         * - если уже YYYY-MM-DD -> берём как есть
-         * - если ДД-ММ-ГГГГ -> превращаем в YYYY-MM-DD через substr
-         */
+        // поддержка и YYYY-MM-DD и ДД-ММ-ГГГГ
         $visitDateIsoExpr = "
             CASE
                 WHEN v.visit_date GLOB '????-??-??' THEN v.visit_date
@@ -51,20 +49,6 @@ return static function (App $app, Environment $twig): void {
                 ELSE v.visit_date
             END
         ";
-
-        $where = "WHERE {$visitDateIsoExpr} BETWEEN :from AND :to";
-
-        if ($q !== '') {
-            $where .= ' AND (
-                c.full_name LIKE :q OR
-                c.phone LIKE :q OR
-                p.name LIKE :q OR
-                p.species LIKE :q OR
-                p.breed LIKE :q OR
-                v.complaint LIKE :q
-            )';
-            $params[':q'] = "%{$q}%";
-        }
 
         $stmt = $pdo->prepare(
             "SELECT
@@ -89,13 +73,25 @@ return static function (App $app, Environment $twig): void {
              FROM visits v
              JOIN pets p ON p.id = v.pet_id
              JOIN clients c ON c.id = p.client_id
-             {$where}
+             WHERE {$visitDateIsoExpr} BETWEEN :from AND :to
              ORDER BY visit_date_iso ASC, v.visit_time ASC, v.id ASC"
         );
-        $stmt->execute($params);
+        $stmt->execute([':from' => $fromIso, ':to' => $toIso]);
         $rows = $stmt->fetchAll();
 
-        // Группируем по ISO дате, показываем красиво ДД-ММ-ГГГГ
+        // Поиск делаем в PHP (и русские буквы ищутся в любом регистре)
+        if ($q !== '') {
+            $rows = array_values(array_filter($rows, static function (array $r) use ($q, $containsCi): bool {
+                return
+                    $containsCi($r['client_full_name'] ?? '', $q) ||
+                    $containsCi($r['client_phone'] ?? '', $q) ||
+                    $containsCi($r['pet_name'] ?? '', $q) ||
+                    $containsCi($r['pet_species'] ?? '', $q) ||
+                    $containsCi($r['pet_breed'] ?? '', $q) ||
+                    $containsCi($r['complaint'] ?? '', $q);
+            }));
+        }
+
         $days = [];
         foreach ($rows as $r) {
             $dateIso = (string)($r['visit_date_iso'] ?? '');
@@ -113,15 +109,13 @@ return static function (App $app, Environment $twig): void {
             $days[$dateIso]['items'][] = $item;
         }
 
-        $dayList = array_values($days);
-
         $html = $twig->render('visits/journal.twig', [
             'title' => 'Журнал визитов',
             'q' => $q,
             'from' => $fromIso,
             'to' => $toIso,
             'today' => $defaultFrom,
-            'days' => $dayList,
+            'days' => array_values($days),
         ]);
 
         $response->getBody()->write($html);

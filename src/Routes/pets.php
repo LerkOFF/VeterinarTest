@@ -11,32 +11,30 @@ use Twig\Environment;
 
 return static function (App $app, Environment $twig): void {
 
+    $containsCi = static function (?string $haystack, string $needle): bool {
+        $haystack = (string)($haystack ?? '');
+        if ($needle === '') return true;
+
+        if (function_exists('mb_stripos')) {
+            return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
+        }
+
+        return stripos($haystack, $needle) !== false;
+    };
+
     /**
-     * Питомцы: список
+     * Питомцы: список + поиск (в PHP, чтобы работало с русскими буквами в любом регистре)
      */
-    $app->get('/pets', function (Request $request, Response $response) use ($twig) {
+    $app->get('/pets', function (Request $request, Response $response) use ($twig, $containsCi) {
         $q = trim((string)($request->getQueryParams()['q'] ?? ''));
 
         $pdo = Db::pdo();
-
-        if ($q !== '') {
-            $stmt = $pdo->prepare(
-                    'SELECT p.*, c.full_name AS client_full_name
-                 FROM pets p
-                 JOIN clients c ON c.id = p.client_id
-                 WHERE p.name LIKE :q OR p.species LIKE :q OR p.breed LIKE :q OR c.full_name LIKE :q
-                 ORDER BY p.id DESC'
-            );
-            $stmt->execute([':q' => "%$q%"]);
-            $petsRaw = $stmt->fetchAll();
-        } else {
-            $petsRaw = $pdo->query(
-                    'SELECT p.*, c.full_name AS client_full_name
-                 FROM pets p
-                 JOIN clients c ON c.id = p.client_id
-                 ORDER BY p.id DESC'
-            )->fetchAll();
-        }
+        $petsRaw = $pdo->query(
+            'SELECT p.*, c.full_name AS client_full_name
+             FROM pets p
+             LEFT JOIN clients c ON c.id = p.client_id
+             ORDER BY p.id DESC'
+        )->fetchAll();
 
         $pets = [];
         foreach ($petsRaw as $p) {
@@ -44,10 +42,22 @@ return static function (App $app, Environment $twig): void {
             $pets[] = $p;
         }
 
+        if ($q !== '') {
+            $pets = array_values(array_filter($pets, static function (array $p) use ($q, $containsCi): bool {
+                return
+                    $containsCi($p['name'] ?? '', $q) ||
+                    $containsCi($p['species'] ?? '', $q) ||
+                    $containsCi($p['breed'] ?? '', $q) ||
+                    $containsCi($p['medications'] ?? '', $q) ||
+                    $containsCi($p['notes'] ?? '', $q) ||
+                    $containsCi($p['client_full_name'] ?? '', $q);
+            }));
+        }
+
         $html = $twig->render('pets/index.twig', [
-                'title' => 'Питомцы',
-                'pets' => $pets,
-                'q' => $q,
+            'title' => 'Питомцы',
+            'pets' => $pets,
+            'q' => $q,
         ]);
 
         $response->getBody()->write($html);
@@ -55,19 +65,19 @@ return static function (App $app, Environment $twig): void {
     });
 
     /**
-     * Питомец: карточка + визиты
+     * Питомец: карточка
      */
     $app->get('/pets/{id}', function (Request $request, Response $response, array $args) use ($twig) {
-        $id = (int)($args['id'] ?? 0);
+        $petId = (int)($args['id'] ?? 0);
         $pdo = Db::pdo();
 
         $stmt = $pdo->prepare(
-                'SELECT p.*, c.full_name AS client_full_name
+            'SELECT p.*, c.full_name AS client_full_name
              FROM pets p
-             JOIN clients c ON c.id = p.client_id
+             LEFT JOIN clients c ON c.id = p.client_id
              WHERE p.id = :id'
         );
-        $stmt->execute([':id' => $id]);
+        $stmt->execute([':id' => $petId]);
         $pet = $stmt->fetch();
 
         if (!$pet) {
@@ -77,14 +87,14 @@ return static function (App $app, Environment $twig): void {
 
         $pet['birth_date_view'] = DateHelper::formatIsoToDdMmYyyy($pet['birth_date'] ?? null);
 
-        $stmt = $pdo->prepare('SELECT * FROM visits WHERE pet_id = :id ORDER BY id DESC');
-        $stmt->execute([':id' => $id]);
+        $stmt = $pdo->prepare('SELECT * FROM visits WHERE pet_id = :pid ORDER BY id DESC');
+        $stmt->execute([':pid' => $petId]);
         $visits = $stmt->fetchAll();
 
         $html = $twig->render('pets/view.twig', [
-                'title' => 'Карточка питомца',
-                'pet' => $pet,
-                'visits' => $visits,
+            'title' => 'Карточка питомца',
+            'pet' => $pet,
+            'visits' => $visits,
         ]);
 
         $response->getBody()->write($html);
@@ -103,12 +113,7 @@ return static function (App $app, Environment $twig): void {
         $defaultBack = '/pets/' . $petId;
         $backUrl = $back ?? $defaultBack;
 
-        $stmt = $pdo->prepare(
-                'SELECT p.*, c.full_name AS client_full_name
-             FROM pets p
-             JOIN clients c ON c.id = p.client_id
-             WHERE p.id = :id'
-        );
+        $stmt = $pdo->prepare('SELECT * FROM pets WHERE id = :id');
         $stmt->execute([':id' => $petId]);
         $pet = $stmt->fetch();
 
@@ -119,12 +124,12 @@ return static function (App $app, Environment $twig): void {
 
         $errors = [];
         $data = [
-                'name' => (string)($pet['name'] ?? ''),
-                'species' => (string)($pet['species'] ?? ''),
-                'breed' => (string)($pet['breed'] ?? ''),
-                'birth_date' => DateHelper::formatIsoToDdMmYyyy($pet['birth_date'] ?? null),
-                'medications' => (string)($pet['medications'] ?? ''),
-                'notes' => (string)($pet['notes'] ?? ''),
+            'name' => (string)($pet['name'] ?? ''),
+            'species' => (string)($pet['species'] ?? ''),
+            'breed' => (string)($pet['breed'] ?? ''),
+            'birth_date' => DateHelper::formatIsoToDdMmYyyy($pet['birth_date'] ?? null) ?? '',
+            'medications' => (string)($pet['medications'] ?? ''),
+            'notes' => (string)($pet['notes'] ?? ''),
         ];
 
         if ($request->getMethod() === 'POST') {
@@ -145,7 +150,7 @@ return static function (App $app, Environment $twig): void {
 
             if (!$errors) {
                 $stmt = $pdo->prepare(
-                        'UPDATE pets
+                    'UPDATE pets
                      SET name = :name,
                          species = :species,
                          breed = :breed,
@@ -157,13 +162,13 @@ return static function (App $app, Environment $twig): void {
                 );
 
                 $stmt->execute([
-                        ':name' => $data['name'],
-                        ':species' => ($data['species'] !== '' ? $data['species'] : null),
-                        ':breed' => ($data['breed'] !== '' ? $data['breed'] : null),
-                        ':birth_date' => $birthIso,
-                        ':medications' => ($data['medications'] !== '' ? $data['medications'] : null),
-                        ':notes' => ($data['notes'] !== '' ? $data['notes'] : null),
-                        ':id' => $petId,
+                    ':name' => $data['name'],
+                    ':species' => ($data['species'] !== '' ? $data['species'] : null),
+                    ':breed' => ($data['breed'] !== '' ? $data['breed'] : null),
+                    ':birth_date' => $birthIso,
+                    ':medications' => ($data['medications'] !== '' ? $data['medications'] : null),
+                    ':notes' => ($data['notes'] !== '' ? $data['notes'] : null),
+                    ':id' => $petId,
                 ]);
 
                 return $response->withHeader('Location', $backUrl)->withStatus(302);
@@ -171,11 +176,11 @@ return static function (App $app, Environment $twig): void {
         }
 
         $html = $twig->render('pets/edit.twig', [
-                'title' => 'Редактировать питомца',
-                'pet' => $pet,
-                'errors' => $errors,
-                'data' => $data,
-                'back_url' => $backUrl,
+            'title' => 'Редактировать питомца',
+            'pet' => $pet,
+            'errors' => $errors,
+            'data' => $data,
+            'back_url' => $backUrl,
         ]);
 
         $response->getBody()->write($html);
@@ -183,13 +188,13 @@ return static function (App $app, Environment $twig): void {
     });
 
     /**
-     * Питомец: удаление
+     * Питомец: удаление (POST) — каскад: visits -> pet
      */
     $app->post('/pets/{id}/delete', function (Request $request, Response $response, array $args) {
         $petId = (int)($args['id'] ?? 0);
         $pdo = Db::pdo();
 
-        $stmt = $pdo->prepare('SELECT id, client_id FROM pets WHERE id = :id');
+        $stmt = $pdo->prepare('SELECT client_id FROM pets WHERE id = :id');
         $stmt->execute([':id' => $petId]);
         $pet = $stmt->fetch();
 
@@ -197,12 +202,27 @@ return static function (App $app, Environment $twig): void {
             return $response->withHeader('Location', '/pets')->withStatus(302);
         }
 
-        $stmt = $pdo->prepare('DELETE FROM visits WHERE pet_id = :id');
-        $stmt->execute([':id' => $petId]);
+        $clientId = (int)($pet['client_id'] ?? 0);
 
-        $stmt = $pdo->prepare('DELETE FROM pets WHERE id = :id');
-        $stmt->execute([':id' => $petId]);
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('DELETE FROM visits WHERE pet_id = :pid');
+            $stmt->execute([':pid' => $petId]);
 
-        return $response->withHeader('Location', '/clients/' . (int)$pet['client_id'])->withStatus(302);
+            $stmt = $pdo->prepare('DELETE FROM pets WHERE id = :id');
+            $stmt->execute([':id' => $petId]);
+
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        // если удаляли из карточки клиента — возвращаемся туда
+        if ($clientId > 0) {
+            return $response->withHeader('Location', '/clients/' . $clientId)->withStatus(302);
+        }
+
+        return $response->withHeader('Location', '/pets')->withStatus(302);
     });
 };
