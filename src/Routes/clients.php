@@ -23,7 +23,7 @@ return static function (App $app, Environment $twig): void {
     };
 
     /**
-     * Клиенты: список + поиск (поиск делаем в PHP, чтобы работало и для русских букв)
+     * Клиенты: список + поиск + пагинация
      */
     $app->get('/clients', function (Request $request, Response $response) use ($twig, $containsCi) {
         $q = trim((string)($request->getQueryParams()['q'] ?? ''));
@@ -31,6 +31,7 @@ return static function (App $app, Environment $twig): void {
         $pdo = Db::pdo();
         $clients = $pdo->query('SELECT * FROM clients ORDER BY id DESC')->fetchAll();
 
+        // Поиск (регистронезависимый, работает с русским)
         if ($q !== '') {
             $clients = array_values(array_filter($clients, static function (array $c) use ($q, $containsCi): bool {
                 return
@@ -41,10 +42,66 @@ return static function (App $app, Environment $twig): void {
             }));
         }
 
+        // --- Pagination ---
+        $qp = $request->getQueryParams();
+        $page = max(1, (int)($qp['page'] ?? 1));
+        $perPage = 20;
+
+        $total = count($clients);
+        $totalPages = max(1, (int)ceil($total / $perPage));
+        if ($page > $totalPages) $page = $totalPages;
+
+        $offset = ($page - 1) * $perPage;
+        $clientsPage = array_slice($clients, $offset, $perPage);
+
+        // base query сохраняет поиск между страницами
+        $baseQuery = [];
+        if ($q !== '') $baseQuery['q'] = $q;
+
+        $prevUrl = $page > 1
+            ? '/clients?' . http_build_query(array_merge($baseQuery, ['page' => $page - 1]))
+            : null;
+
+        $nextUrl = $page < $totalPages
+            ? '/clients?' . http_build_query(array_merge($baseQuery, ['page' => $page + 1]))
+            : null;
+
+        // окно страниц вокруг текущей
+        $pages = [];
+        $start = max(1, $page - 3);
+        $end = min($totalPages, $page + 3);
+
+        for ($p = $start; $p <= $end; $p++) {
+            $pages[] = [
+                'num' => $p,
+                'url' => '/clients?' . http_build_query(array_merge($baseQuery, ['page' => $p])),
+            ];
+        }
+
+        // текущий URL списка — нужен для "back" из edit
+        $currentListUrl = '/clients';
+        $currentQs = http_build_query(array_merge($baseQuery, ['page' => $page]));
+        if ($currentQs !== '') $currentListUrl .= '?' . $currentQs;
+
+        $pagination = [
+            'page' => $page,
+            'perPage' => $perPage,
+            'total' => $total,
+            'totalPages' => $totalPages,
+            'from' => $total > 0 ? $offset + 1 : 0,
+            'to' => $total > 0 ? min($offset + count($clientsPage), $total) : 0,
+            'pages' => $pages,
+            'prevUrl' => $prevUrl,
+            'nextUrl' => $nextUrl,
+            'currentListUrl' => $currentListUrl,
+        ];
+
         $html = $twig->render('clients/index.twig', [
             'title' => 'Клиенты',
-            'clients' => $clients,
+            'clients' => $clientsPage,
             'q' => $q,
+            'pagination' => $pagination,
+            'back_to_list' => $currentListUrl,
         ]);
 
         $response->getBody()->write($html);

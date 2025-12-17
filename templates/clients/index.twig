@@ -47,8 +47,15 @@
 
                                 <div class="d-flex gap-2">
                                     <a class="btn btn-outline-primary btn-sm" href="/clients/{{ c.id }}">Открыть</a>
-                                    <a class="btn btn-success btn-edit btn-sm" href="/clients/{{ c.id }}/edit?back=/clients">Редактировать</a>
-                                    <form method="post" action="/clients/{{ c.id }}/delete" onsubmit="return confirm('Удалить клиента и всех его питомцев/визиты?');">
+
+                                    {# back_to_list приходит из роутинга и содержит текущую страницу списка #}
+                                    <a class="btn btn-success btn-edit btn-sm"
+                                       href="/clients/{{ c.id }}/edit?back={{ back_to_list|url_encode }}">
+                                        Редактировать
+                                    </a>
+
+                                    <form method="post" action="/clients/{{ c.id }}/delete"
+                                          onsubmit="return confirm('Удалить клиента и всех его питомцев/визиты?');">
                                         <button class="btn btn-danger btn-sm" type="submit">Удалить</button>
                                     </form>
                                 </div>
@@ -56,6 +63,34 @@
                         </div>
                     {% endfor %}
                 </div>
+
+                {% if pagination is defined and pagination.totalPages > 1 %}
+                    <div class="p-3 border-top bg-white">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="muted small">
+                                Показано {{ pagination.from }}–{{ pagination.to }} из {{ pagination.total }}
+                            </div>
+
+                            <nav aria-label="Навигация по страницам">
+                                <ul class="pagination mb-0">
+                                    <li class="page-item {{ pagination.prevUrl ? '' : 'disabled' }}">
+                                        <a class="page-link" href="{{ pagination.prevUrl ?? '#' }}">«</a>
+                                    </li>
+
+                                    {% for p in pagination.pages %}
+                                        <li class="page-item {{ p.num == pagination.page ? 'active' : '' }}">
+                                            <a class="page-link" href="{{ p.url }}">{{ p.num }}</a>
+                                        </li>
+                                    {% endfor %}
+
+                                    <li class="page-item {{ pagination.nextUrl ? '' : 'disabled' }}">
+                                        <a class="page-link" href="{{ pagination.nextUrl ?? '#' }}">»</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                {% endif %}
             {% endif %}
         </div>
     </div>
