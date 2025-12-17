@@ -1,63 +1,82 @@
 {% extends "layout.twig" %}
 
 {% block content %}
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    {# ✅ safe_back всегда есть: либо back_url из роута, либо fallback #}
+    {% set safe_back = (back_url is defined and back_url) ? back_url : (visit.pet_id is defined ? ('/pets/' ~ visit.pet_id ~ '#visits') : '/visits/journal') %}
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
-            <h1 class="h4 mb-1">Редактировать визит #{{ visit.id }}</h1>
-            <div class="text-muted small">
-                Питомец: <a class="text-decoration-none" href="/pets/{{ pet.id }}">{{ pet.name }}</a>
-                · Клиент: <a class="text-decoration-none" href="/clients/{{ pet.client_id }}">{{ pet.client_full_name }}</a>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge text-bg-light border">✏️</span>
+                <h1 class="h4 fw-bold m-0">Редактировать визит</h1>
+            </div>
+            <div class="muted small mt-1">
+                {% if visit.client_full_name is defined and visit.client_full_name %}
+                    👤 {{ visit.client_full_name|e }}
+                {% endif %}
+                {% if visit.pet_name is defined and visit.pet_name %}
+                    <span class="mx-2 muted">•</span>🐾 {{ visit.pet_name|e }}
+                {% endif %}
             </div>
         </div>
-        <a class="btn btn-outline-secondary" href="/pets/{{ pet.id }}">Назад</a>
+
+        <a class="btn btn-outline-secondary" href="{{ safe_back|e }}">← Назад</a>
     </div>
 
-    {% if errors %}
+    {% if errors is not empty %}
         <div class="alert alert-danger">
+            <div class="fw-bold mb-1">Проверьте поля:</div>
             <ul class="mb-0">
-                {% for e in errors %}
-                    <li>{{ e }}</li>
+                {% for err in errors %}
+                    <li>{{ err|e }}</li>
                 {% endfor %}
             </ul>
         </div>
     {% endif %}
 
-    <form method="post" class="bg-white rounded shadow-sm p-4">
-        <div class="row g-3">
-            <div class="col-md-4">
-                <label class="form-label">Дата визита (ДД-ММ-ГГГГ)</label>
-                <input class="form-control" name="visit_date" value="{{ data.visit_date }}" placeholder="например 13-12-2025">
-            </div>
+    <div class="card app-card app-shadow">
+        <div class="card-body p-3">
+            <form method="post" action="/visits/{{ visit.id }}/edit?back={{ safe_back|url_encode }}">
+                <div class="row g-3">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">Дата визита</label>
+                        <input class="form-control" name="visit_date" value="{{ data.visit_date|e }}"
+                               placeholder="ДД-ММ-ГГГГ или ГГГГ-ММ-ДД">
+                        <div class="muted small mt-1">Можно: 13-12-2025 или 2025-12-13</div>
+                    </div>
 
-            <div class="col-md-3">
-                <label class="form-label">Время (ЧЧ:ММ)</label>
-                <input class="form-control" name="visit_time" value="{{ data.visit_time }}" placeholder="например 14:30">
-            </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label">Время</label>
+                        <input class="form-control" name="visit_time" value="{{ data.visit_time|e }}" placeholder="HH:MM">
+                    </div>
 
-            <div class="col-12">
-                <label class="form-label">Жалоба / причина</label>
-                <textarea class="form-control" name="complaint" rows="2">{{ data.complaint }}</textarea>
-            </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Жалоба</label>
+                        <input class="form-control" name="complaint" value="{{ data.complaint|e }}"
+                               placeholder="Коротко: что беспокоит">
+                    </div>
 
-            <div class="col-12">
-                <label class="form-label">Диагноз</label>
-                <textarea class="form-control" name="diagnosis" rows="2">{{ data.diagnosis }}</textarea>
-            </div>
+                    <div class="col-12">
+                        <label class="form-label">Диагноз</label>
+                        <input class="form-control" name="diagnosis" value="{{ data.diagnosis|e }}">
+                    </div>
 
-            <div class="col-12">
-                <label class="form-label">Процедуры</label>
-                <textarea class="form-control" name="procedures" rows="2">{{ data.procedures }}</textarea>
-            </div>
+                    <div class="col-12">
+                        <label class="form-label">Процедуры</label>
+                        <textarea class="form-control" name="procedures" rows="3">{{ data.procedures|e }}</textarea>
+                    </div>
 
-            <div class="col-12">
-                <label class="form-label">Рекомендации</label>
-                <textarea class="form-control" name="recommendations" rows="2">{{ data.recommendations }}</textarea>
-            </div>
+                    <div class="col-12">
+                        <label class="form-label">Рекомендации</label>
+                        <textarea class="form-control" name="recommendations" rows="3">{{ data.recommendations|e }}</textarea>
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button class="btn btn-success btn-edit" type="submit">Сохранить</button>
+                        <a class="btn btn-outline-secondary" href="{{ safe_back|e }}">Отмена</a>
+                    </div>
+                </div>
+            </form>
         </div>
-
-        <div class="mt-3 d-flex gap-2">
-            <button class="btn btn-primary" type="submit">Сохранить</button>
-            <a class="btn btn-outline-secondary" href="/pets/{{ pet.id }}">Отмена</a>
-        </div>
-    </form>
+    </div>
 {% endblock %}
